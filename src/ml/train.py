@@ -1,9 +1,12 @@
+import pandas as pd
+
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+import joblib
 
 from src.ml.prepare_dataset import (
     load_ml_dataset,
@@ -39,7 +42,7 @@ def create_models():
         "Logistic Regression": Pipeline([
             ("scaler", StandardScaler()),
             ("model", LogisticRegression(
-                max_iter=2000,
+                max_iter=1000,
                 class_weight="balanced",
                 random_state=42
             ))
@@ -77,6 +80,21 @@ def train_models(X_train, y_train):
     return trained_models
 
 
+def save_models(trained_models):
+    """
+    Save trained models to the models directory.
+    """
+
+    model_paths = {
+        "Logistic Regression": "models/logistic_regression.joblib",
+        "Decision Tree": "models/decision_tree.joblib",
+        "Random Forest": "models/random_forest.joblib"
+    }
+
+    for name, model in trained_models.items():
+        joblib.dump(model, model_paths[name])
+
+
 def main():
 
     # Load dataset
@@ -90,6 +108,9 @@ def main():
 
     # Train models
     trained_models = train_models(X_train, y_train)
+
+    # Save trained models
+    save_models(trained_models)
 
     print("ML TRAINING COMPLETE")
     print("====================")
@@ -108,6 +129,11 @@ def main():
 
     for name in trained_models:
         print(f"- {name}")
+
+    print("\nSAVED MODELS:")
+    print("- models/logistic_regression.joblib")
+    print("- models/decision_tree.joblib")
+    print("- models/random_forest.joblib")
 
 
 if __name__ == "__main__":
