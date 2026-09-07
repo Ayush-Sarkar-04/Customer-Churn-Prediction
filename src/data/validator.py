@@ -1,6 +1,47 @@
 import pandas as pd
 
 
+# =========================================================
+# Date Parsing Helper
+# =========================================================
+
+def parse_project_dates(series):
+    """
+    Parse dates using the date formats supported by the project.
+
+    Supported formats:
+    - DD-MM-YYYY
+    - YYYY-MM-DD
+
+    Invalid values are returned as NaT.
+    """
+
+    values = series.astype("string").str.strip()
+
+    # First try the project's primary format.
+    parsed = pd.to_datetime(
+        values,
+        format="%d-%m-%Y",
+        errors="coerce"
+    )
+
+    # Try ISO format for values that were not parsed.
+    remaining = parsed.isna() & values.notna()
+
+    if remaining.any():
+        parsed.loc[remaining] = pd.to_datetime(
+            values.loc[remaining],
+            format="%Y-%m-%d",
+            errors="coerce"
+        )
+
+    return parsed
+
+
+# =========================================================
+# Column Validation
+# =========================================================
+
 def validate_columns(df, expected_columns):
     actual_columns = set(df.columns)
     expected_columns = set(expected_columns)
@@ -22,18 +63,31 @@ def validate_columns(df, expected_columns):
     }
 
 
+# =========================================================
+# Data Type Validation
+# =========================================================
+
 def validate_data_types(df, dataset_type):
     errors = []
 
     if dataset_type == "customer":
+
         if not pd.api.types.is_numeric_dtype(df["age"]):
-            errors.append("age must be numeric")
+            errors.append(
+                "age must be numeric"
+            )
 
     elif dataset_type == "transaction":
-        if not pd.api.types.is_numeric_dtype(df["bill_amount"]):
-            errors.append("bill_amount must be numeric")
+
+        if not pd.api.types.is_numeric_dtype(
+            df["bill_amount"]
+        ):
+            errors.append(
+                "bill_amount must be numeric"
+            )
 
     elif dataset_type == "campaign":
+
         numeric_columns = [
             "reward_value",
             "campaign_cost",
@@ -44,60 +98,151 @@ def validate_data_types(df, dataset_type):
         ]
 
         for column in numeric_columns:
-            if not pd.api.types.is_numeric_dtype(df[column]):
-                errors.append(f"{column} must be numeric")
+
+            if not pd.api.types.is_numeric_dtype(
+                df[column]
+            ):
+                errors.append(
+                    f"{column} must be numeric"
+                )
 
     else:
-        errors.append("Unknown dataset type")
+
+        errors.append(
+            "Unknown dataset type"
+        )
 
     return {
         "valid": len(errors) == 0,
         "errors": errors
     }
 
+
+# =========================================================
+# Date Validation
+# =========================================================
 
 def validate_dates(df, dataset_type):
     errors = []
 
+    # -----------------------------------------------------
+    # Customers
+    # -----------------------------------------------------
     if dataset_type == "customer":
-        date_columns = [
-            "registration_date"
-        ]
 
-    elif dataset_type == "transaction":
-        date_columns = [
-            "transaction_date"
-        ]
+        parsed_dates = parse_project_dates(
+            df["registration_date"]
+        )
 
-    elif dataset_type == "campaign":
-        date_columns = [
-            "campaign_date",
-            "redemption_date"
-        ]
-
-    else:
-        return {
-            "valid": False,
-            "errors": ["Unknown dataset type"]
-        }
-
-    for column in date_columns:
-
-        # redemption_date is allowed to be empty
-        if dataset_type == "campaign" and column == "redemption_date":
-            values_to_check = df[column].dropna()
-        else:
-            values_to_check = df[column]
-
-        invalid_dates = pd.to_datetime(
-            values_to_check,
-            errors="coerce"
-        ).isna()
+        invalid_dates = parsed_dates.isna()
 
         if invalid_dates.any():
+
             errors.append(
-                f"{column} contains invalid dates"
+                "registration_date contains invalid dates"
             )
+
+    # -----------------------------------------------------
+    # Transactions
+    # -----------------------------------------------------
+    elif dataset_type == "transaction":
+
+        parsed_dates = parse_project_dates(
+            df["transaction_date"]
+        )
+
+        invalid_dates = parsed_dates.isna()
+
+        if invalid_dates.any():
+
+            errors.append(
+                "transaction_date contains invalid dates"
+            )
+
+    # -----------------------------------------------------
+    # Campaigns
+    # -----------------------------------------------------
+    elif dataset_type == "campaign":
+
+        campaign_dates = parse_project_dates(
+            df["campaign_date"]
+        )
+
+        invalid_campaign_dates = (
+            campaign_dates.isna()
+        )
+
+        if invalid_campaign_dates.any():
+
+            errors.append(
+                "campaign_date contains invalid dates"
+            )
+
+        # -------------------------------------------------
+        # Redemption date validation
+        #
+        # redeemed = 0
+        #     redemption_date may be blank
+        #
+        # redeemed = 1
+        #     redemption_date must be valid
+        # -------------------------------------------------
+
+        redemption_dates = parse_project_dates(
+            df["redemption_date"]
+        )
+
+        redeemed_rows = (
+            df["redeemed"] == 1
+        )
+
+        invalid_redeemed_dates = (
+            redeemed_rows
+            & redemption_dates.isna()
+        )
+
+        if invalid_redeemed_dates.any():
+
+            errors.append(
+                "redemption_date contains invalid or missing "
+                "dates for redeemed campaigns"
+            )
+
+        # -------------------------------------------------
+        # Redemption cannot occur before campaign
+        # -------------------------------------------------
+
+        comparable_rows = (
+            redeemed_rows
+            & campaign_dates.notna()
+            & redemption_dates.notna()
+        )
+
+        invalid_date_order = (
+            comparable_rows
+            & (
+                redemption_dates
+                < campaign_dates
+            )
+        )
+
+        if invalid_date_order.any():
+
+            errors.append(
+                "redemption_date cannot be earlier than campaign_date"
+            )
+
+    # -----------------------------------------------------
+    # Unknown dataset
+    # -----------------------------------------------------
+    else:
+
+        return {
+            "valid": False,
+            "errors": [
+                "Unknown dataset type"
+            ]
+        }
 
     return {
         "valid": len(errors) == 0,
@@ -105,7 +250,15 @@ def validate_dates(df, dataset_type):
     }
 
 
-def validate_missing_values(df, required_columns, optional_columns=None):
+# =========================================================
+# Missing Value Validation
+# =========================================================
+
+def validate_missing_values(
+    df,
+    required_columns,
+    optional_columns=None
+):
     errors = []
 
     if optional_columns is None:
@@ -113,11 +266,11 @@ def validate_missing_values(df, required_columns, optional_columns=None):
 
     for column in required_columns:
 
-        # Skip optional columns
         if column in optional_columns:
             continue
 
         if df[column].isna().any():
+
             errors.append(
                 f"{column} contains missing values"
             )
@@ -128,14 +281,24 @@ def validate_missing_values(df, required_columns, optional_columns=None):
     }
 
 
+# =========================================================
+# Duplicate Validation
+# =========================================================
+
 def validate_duplicates(df, id_column):
     errors = []
 
-    duplicate_count = df[id_column].duplicated().sum()
+    duplicate_count = (
+        df[id_column]
+        .duplicated()
+        .sum()
+    )
 
     if duplicate_count > 0:
+
         errors.append(
-            f"{id_column} contains {duplicate_count} duplicate values"
+            f"{id_column} contains "
+            f"{duplicate_count} duplicate values"
         )
 
     return {
@@ -144,15 +307,27 @@ def validate_duplicates(df, id_column):
     }
 
 
+# =========================================================
+# ID Validation
+# =========================================================
+
 def validate_ids(df, id_column):
     errors = []
 
     if df[id_column].isna().any():
+
         errors.append(
             f"{id_column} contains missing IDs"
         )
 
-    if (df[id_column].astype(str).str.strip() == "").any():
+    if (
+        df[id_column]
+        .astype(str)
+        .str.strip()
+        .eq("")
+        .any()
+    ):
+
         errors.append(
             f"{id_column} contains empty IDs"
         )
@@ -162,6 +337,10 @@ def validate_ids(df, id_column):
         "errors": errors
     }
 
+
+# =========================================================
+# Cross-File Customer Reference Validation
+# =========================================================
 
 def validate_customer_references(
     customers_df,
@@ -183,14 +362,17 @@ def validate_customer_references(
     )
 
     invalid_transaction_ids = (
-        transaction_customer_ids - customer_ids
+        transaction_customer_ids
+        - customer_ids
     )
 
     invalid_campaign_ids = (
-        campaign_customer_ids - customer_ids
+        campaign_customer_ids
+        - customer_ids
     )
 
     if invalid_transaction_ids:
+
         errors.append(
             f"Transactions contain "
             f"{len(invalid_transaction_ids)} "
@@ -198,6 +380,7 @@ def validate_customer_references(
         )
 
     if invalid_campaign_ids:
+
         errors.append(
             f"Campaigns contain "
             f"{len(invalid_campaign_ids)} "
@@ -210,6 +393,10 @@ def validate_customer_references(
     }
 
 
+# =========================================================
+# Complete Dataset Validation
+# =========================================================
+
 def validate_dataset(
     df,
     dataset_type,
@@ -218,55 +405,76 @@ def validate_dataset(
 ):
     errors = []
 
-    # 1. Check column structure
+    # -----------------------------------------------------
+    # 1. Schema / Column Structure
+    # -----------------------------------------------------
+
     column_result = validate_columns(
         df,
         expected_columns
     )
 
     if not column_result["valid"]:
+
         errors.append({
             "type": "columns",
             "missing": column_result["missing"],
             "extra": column_result["extra"]
         })
 
-        # Stop here because other validators may
-        # fail if required columns are missing.
+        # Stop here because the remaining validators
+        # may fail if required columns are missing.
         return {
             "valid": False,
             "errors": errors
         }
 
-    # 2. Check data types
+    # -----------------------------------------------------
+    # 2. Data Types
+    # -----------------------------------------------------
+
     type_result = validate_data_types(
         df,
         dataset_type
     )
 
     if not type_result["valid"]:
+
         errors.extend(
             type_result["errors"]
         )
 
-    # 3. Check dates
+    # -----------------------------------------------------
+    # 3. Dates
+    # -----------------------------------------------------
+
     date_result = validate_dates(
         df,
         dataset_type
     )
 
     if not date_result["valid"]:
+
         errors.extend(
             date_result["errors"]
         )
 
-    # 4. Check missing values
+    # -----------------------------------------------------
+    # 4. Missing Values
+    # -----------------------------------------------------
     #
-    # redemption_date is optional because
-    # campaigns may not have been redeemed.
+    # redemption_date is optional at the general
+    # missing-value level because non-redeemed campaigns
+    # may legitimately have no redemption date.
+    #
+    # The conditional rule for redeemed campaigns is
+    # handled separately in validate_dates().
+    # -----------------------------------------------------
+
     optional_columns = []
 
     if dataset_type == "campaign":
+
         optional_columns = [
             "redemption_date"
         ]
@@ -278,28 +486,37 @@ def validate_dataset(
     )
 
     if not missing_result["valid"]:
+
         errors.extend(
             missing_result["errors"]
         )
 
-    # 5. Check duplicate IDs
+    # -----------------------------------------------------
+    # 5. Duplicate IDs
+    # -----------------------------------------------------
+
     duplicate_result = validate_duplicates(
         df,
         id_column
     )
 
     if not duplicate_result["valid"]:
+
         errors.extend(
             duplicate_result["errors"]
         )
 
-    # 6. Check empty/missing IDs
+    # -----------------------------------------------------
+    # 6. Empty / Missing IDs
+    # -----------------------------------------------------
+
     id_result = validate_ids(
         df,
         id_column
     )
 
     if not id_result["valid"]:
+
         errors.extend(
             id_result["errors"]
         )
@@ -309,12 +526,21 @@ def validate_dataset(
         "errors": errors
     }
 
-def validate_file_size(file_size_bytes, max_file_size_bytes):
+
+# =========================================================
+# File Size Validation
+# =========================================================
+
+def validate_file_size(
+    file_size_bytes,
+    max_file_size_bytes
+):
     errors = []
 
     if file_size_bytes > max_file_size_bytes:
+
         errors.append(
-            f"File size exceeds the maximum allowed size of "
+            "File size exceeds the maximum allowed size of "
             f"{max_file_size_bytes / (1024 * 1024):.0f} MB"
         )
 
@@ -324,15 +550,21 @@ def validate_file_size(file_size_bytes, max_file_size_bytes):
     }
 
 
+# =========================================================
+# Row Count Validation
+# =========================================================
+
 def validate_row_count(df, max_rows):
     errors = []
 
     row_count = len(df)
 
     if row_count > max_rows:
+
         errors.append(
             f"File contains {row_count} rows, "
-            f"which exceeds the maximum allowed limit of {max_rows} rows"
+            f"which exceeds the maximum allowed limit "
+            f"of {max_rows} rows"
         )
 
     return {
@@ -340,19 +572,34 @@ def validate_row_count(df, max_rows):
         "errors": errors
     }
 
-def validate_file_count(file_count, max_files):
+
+# =========================================================
+# File Count Validation
+# =========================================================
+
+def validate_file_count(
+    file_count,
+    max_files
+):
     errors = []
 
     if file_count > max_files:
+
         errors.append(
             f"Upload contains {file_count} files, "
-            f"which exceeds the maximum allowed limit of {max_files} files"
+            f"which exceeds the maximum allowed limit "
+            f"of {max_files} files"
         )
 
     return {
         "valid": len(errors) == 0,
         "errors": errors
     }
+
+
+# =========================================================
+# Uploaded Dataset Validation
+# =========================================================
 
 def validate_uploaded_datasets(
     customers_df,
@@ -361,14 +608,20 @@ def validate_uploaded_datasets(
 ):
     errors = []
 
-    # Expected columns
+    # -----------------------------------------------------
+    # Expected schemas
+    # -----------------------------------------------------
+
     from src.data.schema import (
         CUSTOMER_COLUMNS,
         TRANSACTION_COLUMNS,
         CAMPAIGN_COLUMNS
     )
 
-    # 1. Validate customers dataset
+    # -----------------------------------------------------
+    # 1. Customers
+    # -----------------------------------------------------
+
     customer_result = validate_dataset(
         customers_df,
         "customer",
@@ -377,12 +630,16 @@ def validate_uploaded_datasets(
     )
 
     if not customer_result["valid"]:
+
         errors.append({
             "dataset": "customers",
             "errors": customer_result["errors"]
         })
 
-    # 2. Validate transactions dataset
+    # -----------------------------------------------------
+    # 2. Transactions
+    # -----------------------------------------------------
+
     transaction_result = validate_dataset(
         transactions_df,
         "transaction",
@@ -391,12 +648,16 @@ def validate_uploaded_datasets(
     )
 
     if not transaction_result["valid"]:
+
         errors.append({
             "dataset": "transactions",
             "errors": transaction_result["errors"]
         })
 
-    # 3. Validate campaigns dataset
+    # -----------------------------------------------------
+    # 3. Campaigns
+    # -----------------------------------------------------
+
     campaign_result = validate_dataset(
         campaigns_df,
         "campaign",
@@ -405,12 +666,16 @@ def validate_uploaded_datasets(
     )
 
     if not campaign_result["valid"]:
+
         errors.append({
             "dataset": "campaigns",
             "errors": campaign_result["errors"]
         })
 
-    # 4. Validate customer references
+    # -----------------------------------------------------
+    # 4. Cross-file References
+    # -----------------------------------------------------
+
     reference_result = validate_customer_references(
         customers_df,
         transactions_df,
@@ -418,6 +683,7 @@ def validate_uploaded_datasets(
     )
 
     if not reference_result["valid"]:
+
         errors.append({
             "dataset": "cross_reference",
             "errors": reference_result["errors"]
