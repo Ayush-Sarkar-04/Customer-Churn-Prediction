@@ -8,6 +8,7 @@ def build_customer_analytics(df, model_path=None):
     """
     Build a combined customer analytics table containing:
 
+    - Observation date
     - RFM features
     - RFM scores
     - Customer segments
@@ -55,18 +56,26 @@ def build_customer_analytics(df, model_path=None):
     # ---------------------------------------------------------
     # Customer segmentation
     # ---------------------------------------------------------
+    segmentation_columns = [
+        "customer_id",
+        "recency",
+        "frequency",
+        "monetary",
+    ]
+
     segmentation = assign_customer_segments(
-        data[
-            [
-                "customer_id",
-                "recency",
-                "frequency",
-                "monetary",
-            ]
-        ]
+        data[segmentation_columns]
     ).reset_index(drop=True)
 
     segmentation["_observation_id"] = data["_observation_id"]
+
+    # ---------------------------------------------------------
+    # Preserve observation date
+    # ---------------------------------------------------------
+    if "observation_date" in data.columns:
+        segmentation["observation_date"] = (
+            data["observation_date"].values
+        )
 
     # ---------------------------------------------------------
     # Churn prediction and risk classification
@@ -83,8 +92,9 @@ def build_customer_analytics(df, model_path=None):
 
     predictions["_observation_id"] = data["_observation_id"]
 
-    # We already have customer_id from the segmentation dataframe.
-    # Remove it from predictions to avoid customer_id_x/customer_id_y.
+    # We already have customer_id from segmentation.
+    # Remove it from predictions to avoid
+    # customer_id_x / customer_id_y.
     predictions = predictions.drop(
         columns=["customer_id"]
     )
@@ -99,12 +109,37 @@ def build_customer_analytics(df, model_path=None):
         validate="one_to_one",
     )
 
+    # ---------------------------------------------------------
+    # Restore useful source columns
+    # ---------------------------------------------------------
+    source_columns = [
+        "customer_tenure",
+        "average_bill",
+        "avg_purchase_gap",
+        "campaigns_received",
+        "campaigns_sent",
+        "campaigns_delivered",
+        "campaign_clicks",
+        "previous_redemptions",
+        "delivery_rate",
+        "click_rate",
+        "redemption_rate",
+        "campaigns_since_last_purchase",
+        "future_90d_purchases",
+        "churn",
+    ]
+
+    for column in source_columns:
+        if column in data.columns and column not in result.columns:
+            result[column] = data[column].values
+
     # Remove temporary technical identifier.
     result = result.drop(
         columns=["_observation_id"]
     )
 
     return result
+
 
 def calculate_segment_risk_counts(customer_analytics):
     """
@@ -128,7 +163,10 @@ def calculate_segment_risk_counts(customer_analytics):
         "risk_level",
     }
 
-    missing_columns = required_columns - set(customer_analytics.columns)
+    missing_columns = (
+        required_columns
+        - set(customer_analytics.columns)
+    )
 
     if missing_columns:
         raise ValueError(
