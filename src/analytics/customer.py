@@ -1,6 +1,7 @@
 import pandas as pd
 
 from src.analytics.segmentation import assign_customer_segments
+from src.analytics.retention import calculate_retention_priority
 from src.ml.predict import predict_customers
 
 
@@ -15,6 +16,10 @@ def build_customer_analytics(df, model_path=None):
     - Churn prediction
     - Churn probability
     - Risk level
+    - Customer value percentile
+    - Retention priority score
+    - Retention priority
+    - Expected revenue at risk
 
     The input dataset may contain multiple observation
     records for the same customer.
@@ -133,7 +138,14 @@ def build_customer_analytics(df, model_path=None):
         if column in data.columns and column not in result.columns:
             result[column] = data[column].values
 
-    # Remove temporary technical identifier.
+    # ---------------------------------------------------------
+    # Retention priority analytics
+    # ---------------------------------------------------------
+    result = calculate_retention_priority(result)
+
+    # ---------------------------------------------------------
+    # Remove temporary technical identifier
+    # ---------------------------------------------------------
     result = result.drop(
         columns=["_observation_id"]
     )
