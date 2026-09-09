@@ -1,43 +1,35 @@
 import pandas as pd
 
-from src.ml.risk import (
-    classify_risk,
-    assign_risk_levels
-)
+from src.ml.risk import classify_risk, add_risk_level
 
 
 def test_classify_risk():
 
-    assert classify_risk(0.10, 0) == "Low"
-    assert classify_risk(0.30, 0) == "Medium"
-    assert classify_risk(0.60, 0) == "High"
-    assert classify_risk(0.80, 0) == "Very High"
-
-    # Churned prediction takes priority
-    assert classify_risk(0.20, 1) == "Churned"
+    assert classify_risk(0.10) == "Low"
+    assert classify_risk(0.30) == "Medium"
+    assert classify_risk(0.60) == "High"
+    assert classify_risk(0.80) == "Very High"
 
 
-def test_assign_risk_levels():
+def test_add_risk_level():
 
-    predictions = pd.DataFrame({
-        "churn_prediction": [0, 0, 0, 0, 1],
-        "churn_probability": [0.10, 0.30, 0.60, 0.80, 0.20]
-    })
+    df = pd.DataFrame(
+        {
+            "customer_id": ["C001", "C002", "C003", "C004"],
+            "churn_probability": [
+                0.10,
+                0.30,
+                0.60,
+                0.80,
+            ],
+        }
+    )
 
-    result = assign_risk_levels(predictions)
+    result = add_risk_level(df)
 
-    print("\nRISK CLASSIFICATION")
-    print("===================")
-    print(result)
-
-    assert "risk_level" in result.columns
-
-    assert result["risk_level"].tolist() == [
+    assert list(result["risk_level"]) == [
         "Low",
         "Medium",
         "High",
         "Very High",
-        "Churned"
     ]
-
-    assert len(result) == len(predictions)
