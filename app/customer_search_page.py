@@ -1,365 +1,585 @@
 import pandas as pd
 import streamlit as st
 
-from src.analytics.customer_search import (
-    search_customers,
-    get_customer_profile,
-)
+
+# =========================================================
+# CUSTOMER SEARCH — CLEAN DASHBOARD UI
+# =========================================================
+
+BG = "#0E1117"
+SURFACE = "#161A1F"
+SURFACE_ALT = "#1E2329"
+BORDER = "#30343A"
+LINE = "#3A4046"
+TEXT = "#E8E8E8"
+MUTED = "#92979D"
+WHITE = "#E8E8E8"
 
 
-def render_customer_search_page(customer_analytics):
-    """
-    Render the Customer Search / Customer Explorer page.
+def _safe(value, default="—"):
+    if value is None or pd.isna(value):
+        return default
+    return value
 
-    Exact customer ID:
-        Shows the complete customer profile immediately.
 
-    Partial customer ID:
-        Shows matching customers in a result table.
-    """
+def _format_number(value, decimals=0):
+    value = _safe(value)
+    if value == "—":
+        return "—"
+    return f"{float(value):,.{decimals}f}"
 
-    st.title("Customer Search")
 
-    st.write(
-        "Search for a customer and view their RFM profile, "
-        "segment, churn probability, and risk level."
+def _format_currency(value):
+    value = _safe(value)
+    if value == "—":
+        return "—"
+    return f"₹{float(value):,.2f}"
+
+
+def _format_percent(value):
+    value = _safe(value)
+    if value == "—":
+        return "—"
+    return f"{float(value):.2%}"
+
+
+def _format_days(value):
+    value = _safe(value)
+    if value == "—":
+        return "—"
+    return f"{float(value):,.0f} days"
+
+
+def _format_date(value):
+    value = _safe(value)
+    if value == "—":
+        return "—"
+    parsed = pd.to_datetime(value, errors="coerce", dayfirst=True)
+    if pd.isna(parsed):
+        return str(value)
+    return parsed.strftime("%d %b %Y")
+
+
+def _metric_card(label, value, description):
+    """One consistent bordered metric card. No nested Streamlit borders."""
+    st.html(
+        f"""
+        <div style="
+            width:100%;
+            min-height:92px;
+            box-sizing:border-box;
+            background:{SURFACE};
+            border:1px solid {BORDER};
+            border-radius:7px;
+            padding:13px 15px 12px 15px;
+            overflow:hidden;
+        ">
+            <div style="
+                height:2px;
+                width:100%;
+                background:{LINE};
+                margin:0 0 10px 0;
+            "></div>
+            <div style="
+                color:{MUTED};
+                font-size:10px;
+                font-weight:700;
+                letter-spacing:.08em;
+                text-transform:uppercase;
+                line-height:1.2;
+                margin:0 0 6px 0;
+            ">{label}</div>
+            <div style="
+                color:{TEXT};
+                font-size:20px;
+                font-weight:700;
+                line-height:1.2;
+                margin:0 0 5px 0;
+                white-space:nowrap;
+                overflow:hidden;
+                text-overflow:ellipsis;
+            ">{value}</div>
+            <div style="
+                color:{MUTED};
+                font-size:10px;
+                line-height:1.3;
+                margin:0;
+            ">{description}</div>
+        </div>
+        """,
     )
 
-    st.divider()
 
-    # ---------------------------------------------------------
-    # Search input
-    # ---------------------------------------------------------
-    search_term = st.text_input(
-        "Search Customer ID",
-        placeholder="Example: C0036 or C00",
+def _profile_identity(customer):
+    """Render the profile header shown in the approved Customer Search render."""
+    customer_id = _safe(customer.get("customer_id"))
+    registration = _format_date(customer.get("registration_date"))
+    segment = _safe(customer.get("customer_segment"))
+    city = _safe(customer.get("city"))
+
+    st.html(
+        f"""
+        <div style="
+            width:100%;
+            box-sizing:border-box;
+            background:{SURFACE};
+            border:1px solid {BORDER};
+            border-radius:7px;
+            padding:16px 18px;
+            margin:0;
+        ">
+            <div style="
+                display:grid;
+                grid-template-columns:1.7fr 1fr 1fr 1fr;
+                align-items:center;
+                column-gap:24px;
+            ">
+                <div style="
+                    min-width:0;
+                    padding-right:22px;
+                    border-right:1px solid {BORDER};
+                ">
+                    <div style="
+                        color:{MUTED};
+                        font-size:9px;
+                        font-weight:700;
+                        letter-spacing:.09em;
+                        text-transform:uppercase;
+                        margin-bottom:6px;
+                    ">CUSTOMER ID</div>
+                    <div style="
+                        color:{TEXT};
+                        font-size:22px;
+                        font-weight:700;
+                        line-height:1.15;
+                        overflow:hidden;
+                        text-overflow:ellipsis;
+                        white-space:nowrap;
+                    ">{customer_id}</div>
+                    <div style="
+                        color:{MUTED};
+                        font-size:10px;
+                        margin-top:4px;
+                    ">Customer profile</div>
+                </div>
+
+                <div>
+                    <div style="
+                        color:{MUTED};
+                        font-size:9px;
+                        font-weight:700;
+                        letter-spacing:.07em;
+                        text-transform:uppercase;
+                        margin-bottom:6px;
+                    ">CUSTOMER SINCE</div>
+                    <div style="
+                        color:{TEXT};
+                        font-size:13px;
+                        font-weight:600;
+                    ">{registration}</div>
+                </div>
+
+                <div>
+                    <div style="
+                        color:{MUTED};
+                        font-size:9px;
+                        font-weight:700;
+                        letter-spacing:.07em;
+                        text-transform:uppercase;
+                        margin-bottom:6px;
+                    ">CUSTOMER SEGMENT</div>
+                    <div style="
+                        color:{TEXT};
+                        font-size:13px;
+                        font-weight:600;
+                    ">{segment}</div>
+                </div>
+
+                <div>
+                    <div style="
+                        color:{MUTED};
+                        font-size:9px;
+                        font-weight:700;
+                        letter-spacing:.07em;
+                        text-transform:uppercase;
+                        margin-bottom:6px;
+                    ">LOCATION</div>
+                    <div style="
+                        color:{TEXT};
+                        font-size:13px;
+                        font-weight:600;
+                    ">{city}</div>
+                </div>
+            </div>
+        </div>
+        """,
     )
 
-    search_term = search_term.strip()
 
-    # ---------------------------------------------------------
-    # Empty search
-    # ---------------------------------------------------------
-    if not search_term:
-        st.info(
-            "Enter a customer ID or partial customer ID to search."
-        )
-        return
-
-    # ---------------------------------------------------------
-    # Search customers
-    # ---------------------------------------------------------
-    matches = search_customers(
-        customer_analytics,
-        search_term,
+def _section_heading(title, description):
+    st.html(
+        f"""
+        <div style="
+            margin:22px 0 10px 0;
+            padding:0;
+        ">
+            <div style="
+                color:{TEXT};
+                font-size:19px;
+                font-weight:700;
+                line-height:1.2;
+                margin:0 0 4px 0;
+            ">{title}</div>
+            <div style="
+                color:{MUTED};
+                font-size:11px;
+                line-height:1.35;
+                margin:0;
+            ">{description}</div>
+        </div>
+        """,
     )
 
-    # ---------------------------------------------------------
-    # No results
-    # ---------------------------------------------------------
-    if matches.empty:
-        st.warning(
-            f"No customers found matching '{search_term}'."
-        )
-        return
 
-    # ---------------------------------------------------------
-    # Check whether the search is an exact customer ID
-    # ---------------------------------------------------------
-    customer_ids = (
-        matches["customer_id"]
-        .astype(str)
-        .str.strip()
-    )
-
-    exact_match = matches[
-        customer_ids.str.casefold()
-        == search_term.casefold()
+def _details_table(customer):
+    details = [
+        ("Customer ID", _safe(customer.get("customer_id"))),
+        ("Gender", _safe(customer.get("gender"))),
+        ("Age", _format_number(customer.get("age"))),
+        ("City", _safe(customer.get("city"))),
+        ("Customer Since", _format_date(customer.get("registration_date"))),
+        ("Observation Date", _format_date(customer.get("observation_date"))),
+        ("Churn Prediction", _safe(customer.get("churn_prediction"))),
+        ("Campaigns Received", _format_number(customer.get("campaigns_received"))),
+        ("Campaigns Since Last Purchase", _format_number(customer.get("campaigns_since_last_purchase"))),
     ]
 
-    # =========================================================
-    # EXACT CUSTOMER SEARCH
-    # =========================================================
-    if len(exact_match) == 1:
-
-        customer = get_customer_profile(
-            customer_analytics,
-            exact_match.iloc[0]["customer_id"],
-        )
-
-        st.subheader(
-            f"Customer Profile — {customer['customer_id']}"
-        )
-
-        # -----------------------------------------------------
-        # Customer status
-        # -----------------------------------------------------
-        status_col1, status_col2, status_col3 = st.columns(3)
-
-        with status_col1:
-            st.metric(
-                "Customer Segment",
-                customer["customer_segment"],
-            )
-
-        with status_col2:
-            st.metric(
-                "Risk Level",
-                customer["risk_level"],
-            )
-
-        with status_col3:
-            churn_probability = (
-                float(customer["churn_probability"])
-                * 100
-            )
-
-            st.metric(
-                "Churn Probability",
-                f"{churn_probability:.2f}%",
-            )
-
-        st.divider()
-
-        # -----------------------------------------------------
-        # RFM profile
-        # -----------------------------------------------------
-        st.subheader("RFM Profile")
-
-        rfm_col1, rfm_col2, rfm_col3, rfm_col4 = st.columns(4)
-
-        with rfm_col1:
-            st.metric(
-                "Recency",
-                f"{customer['recency']:.0f} days",
-            )
-
-        with rfm_col2:
-            st.metric(
-                "Frequency",
-                f"{customer['frequency']:.0f}",
-            )
-
-        with rfm_col3:
-            st.metric(
-                "Monetary Value",
-                f"₹{customer['monetary']:,.2f}",
-            )
-
-        with rfm_col4:
-            st.metric(
-                "RFM Score",
-                f"{customer['rfm_score']:.0f}",
-            )
-
-        # -----------------------------------------------------
-        # Purchase behaviour
-        # -----------------------------------------------------
-        st.subheader("Purchase Behaviour")
-
-        purchase_col1, purchase_col2 = st.columns(2)
-
-        with purchase_col1:
-            if "average_bill" in customer.index:
-                st.metric(
-                    "Average Bill",
-                    f"₹{customer['average_bill']:,.2f}",
-                )
-
-        with purchase_col2:
-            if "average_purchase_gap" in customer.index:
-
-                average_gap = customer["average_purchase_gap"]
-
-                if pd.isna(average_gap):
-                    gap_text = "N/A"
-                else:
-                    gap_text = f"{average_gap:.1f} days"
-
-                st.metric(
-                    "Average Purchase Gap",
-                    gap_text,
-                )
-
-        # -----------------------------------------------------
-        # Customer tenure
-        # -----------------------------------------------------
-        if "customer_tenure" in customer.index:
-            st.metric(
-                "Customer Tenure",
-                f"{customer['customer_tenure']:.0f} days",
-            )
-
-        # -----------------------------------------------------
-        # Campaign engagement
-        # -----------------------------------------------------
-        campaign_metrics = [
-            "campaigns_sent",
-            "campaigns_delivered",
-            "campaign_clicks",
-            "campaigns_redeemed",
-        ]
-
-        available_campaign_metrics = [
-            column
-            for column in campaign_metrics
-            if column in customer.index
-        ]
-
-        if available_campaign_metrics:
-
-            st.subheader("Campaign Engagement")
-
-            campaign_col1, campaign_col2, campaign_col3, campaign_col4 = (
-                st.columns(4)
-            )
-
-            if "campaigns_sent" in customer.index:
-                with campaign_col1:
-                    st.metric(
-                        "Campaigns Sent",
-                        f"{customer['campaigns_sent']:.0f}",
-                    )
-
-            if "campaigns_delivered" in customer.index:
-                with campaign_col2:
-                    st.metric(
-                        "Delivered",
-                        f"{customer['campaigns_delivered']:.0f}",
-                    )
-
-            if "campaign_clicks" in customer.index:
-                with campaign_col3:
-                    st.metric(
-                        "Clicked",
-                        f"{customer['campaign_clicks']:.0f}",
-                    )
-
-            if "campaigns_redeemed" in customer.index:
-                with campaign_col4:
-                    st.metric(
-                        "Redeemed",
-                        f"{customer['campaigns_redeemed']:.0f}",
-                    )
-
-            # -------------------------------------------------
-            # Campaign rates
-            # -------------------------------------------------
-            rate_columns = [
-                "delivery_rate",
-                "click_rate",
-                "redemption_rate",
-            ]
-
-            available_rates = [
-                column
-                for column in rate_columns
-                if column in customer.index
-            ]
-
-            if available_rates:
-
-                rate_col1, rate_col2, rate_col3 = st.columns(3)
-
-                if "delivery_rate" in customer.index:
-                    with rate_col1:
-                        st.metric(
-                            "Delivery Rate",
-                            f"{customer['delivery_rate'] * 100:.2f}%",
-                        )
-
-                if "click_rate" in customer.index:
-                    with rate_col2:
-                        st.metric(
-                            "Click Rate",
-                            f"{customer['click_rate'] * 100:.2f}%",
-                        )
-
-                if "redemption_rate" in customer.index:
-                    with rate_col3:
-                        st.metric(
-                            "Redemption Rate",
-                            f"{customer['redemption_rate'] * 100:.2f}%",
-                        )
-
-            # -------------------------------------------------
-            # Previous redemptions
-            # -------------------------------------------------
-            if "previous_redemptions" in customer.index:
-                st.metric(
-                    "Previous Redemptions",
-                    f"{customer['previous_redemptions']:.0f}",
-                )
-
-        # -----------------------------------------------------
-        # Observation information
-        # -----------------------------------------------------
-        if "observation_date" in customer.index:
-
-            observation_date = customer["observation_date"]
-
-            if pd.notna(observation_date):
-
-                parsed_date = pd.to_datetime(
-                    observation_date,
-                    errors="coerce",
-                )
-
-                if pd.notna(parsed_date):
-                    st.caption(
-                        "Latest observation: "
-                        f"{parsed_date.strftime('%d-%m-%Y')}"
-                    )
-
-        return
-
-    # =========================================================
-    # PARTIAL SEARCH
-    # =========================================================
-    st.subheader(
-        f"Matching Customers ({len(matches)})"
-    )
-
-    display_columns = [
-        "customer_id",
-        "recency",
-        "frequency",
-        "monetary",
-        "customer_segment",
-        "churn_probability",
-        "risk_level",
-    ]
-
-    available_columns = [
-        column
-        for column in display_columns
-        if column in matches.columns
-    ]
-
-    result_table = matches[
-        available_columns
-    ].copy()
-
-    # Convert churn probability to percentage.
-    if "churn_probability" in result_table.columns:
-
-        result_table["churn_probability"] = (
-            result_table["churn_probability"]
-            * 100
-        ).round(2)
-
-        result_table = result_table.rename(
-            columns={
-                "churn_probability": "churn_probability_%"
-            }
-        )
+    details_df = pd.DataFrame(details, columns=["Metric", "Value"])
 
     st.dataframe(
-        result_table,
-        width="stretch",
+        details_df,
+        use_container_width=True,
         hide_index=True,
+        height=360,
     )
 
-    st.info(
-        "Enter an exact customer ID to view the complete profile."
+
+def render_customer_search_page(search_data):
+    """
+    Render the complete Customer Search page.
+
+    Preserves:
+    - customer search and partial-ID matching
+    - customer identity/profile
+    - segment, risk and churn probability
+    - RFM profile
+    - purchase behaviour
+    - campaign engagement
+    - profile details
+    """
+
+    if "customer_id" not in search_data.columns:
+        st.error("Customer search data does not contain customer_id.")
+        return
+
+    data = search_data.copy()
+
+    data["customer_id"] = (
+        data["customer_id"].astype(str).str.strip()
     )
+
+    data = data[
+        data["customer_id"].notna()
+        & (data["customer_id"] != "")
+    ].copy()
+
+    data = (
+        data.sort_values("customer_id")
+        .drop_duplicates(subset=["customer_id"], keep="last")
+        .reset_index(drop=True)
+    )
+
+    customer_ids = data["customer_id"].tolist()
+
+    if not customer_ids:
+        st.info("No customer profiles are available.")
+        return
+
+    # ---------------------------------------------------------
+    # PAGE HEADER
+    # ---------------------------------------------------------
+
+    st.html(
+        f"""
+        <div style="margin:0 0 18px 0;">
+            <div style="
+                color:{TEXT};
+                font-size:31px;
+                font-weight:750;
+                letter-spacing:-.03em;
+                line-height:1.1;
+            ">Customer Search</div>
+            <div style="
+                color:{MUTED};
+                font-size:12px;
+                margin-top:5px;
+                line-height:1.4;
+            ">Search for a customer to view their profile, RFM, purchase behaviour,
+            campaign engagement and churn intelligence.</div>
+        </div>
+        """,
+    )
+
+    # ---------------------------------------------------------
+    # SEARCH
+    # ---------------------------------------------------------
+
+    search_query = st.text_input(
+        "Search Customer",
+        placeholder="Type a customer ID, e.g. C00 or C0036",
+        key="customer_search_query",
+    ).strip()
+
+    if not search_query:
+        st.caption(
+            "Enter a customer ID or partial ID to begin. "
+            "For example, C00 will show matching customers."
+        )
+        return
+
+    query_lower = search_query.lower()
+
+    matching_ids = [
+        customer_id
+        for customer_id in customer_ids
+        if query_lower in customer_id.lower()
+    ]
+
+    if not matching_ids:
+        st.warning(
+            f"No customer IDs found matching '{search_query}'."
+        )
+        return
+
+    exact_matches = [
+        customer_id
+        for customer_id in matching_ids
+        if customer_id.lower() == query_lower
+    ]
+
+    if exact_matches:
+        selected_customer_id = exact_matches[0]
+    elif len(matching_ids) == 1:
+        selected_customer_id = matching_ids[0]
+    else:
+        st.caption(
+            f"{len(matching_ids):,} customer IDs match "
+            f"'{search_query}'. Select a customer:"
+        )
+        selected_customer_id = st.selectbox(
+            "Matching customers",
+            matching_ids,
+            key="customer_search_result",
+        )
+
+    customer_rows = data[
+        data["customer_id"] == selected_customer_id
+    ]
+
+    if customer_rows.empty:
+        st.error("Customer profile could not be loaded.")
+        return
+
+    customer = customer_rows.iloc[0]
+
+    # ---------------------------------------------------------
+    # CUSTOMER PROFILE
+    # ---------------------------------------------------------
+
+    _section_heading(
+        f"Customer Profile — {selected_customer_id}",
+        "Key information about the selected customer.",
+    )
+
+    _profile_identity(customer)
+
+    st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
+
+    # ---------------------------------------------------------
+    # EXECUTIVE SUMMARY
+    # ---------------------------------------------------------
+
+    summary_1, summary_2, summary_3 = st.columns(
+        3,
+        gap="small",
+    )
+
+    with summary_1:
+        _metric_card(
+            "CUSTOMER SEGMENT",
+            str(_safe(customer.get("customer_segment"))),
+            "RFM-based customer segment",
+        )
+
+    with summary_2:
+        _metric_card(
+            "RISK LEVEL",
+            str(_safe(customer.get("risk_level"))),
+            "Predicted churn-risk category",
+        )
+
+    with summary_3:
+        _metric_card(
+            "CHURN PROBABILITY",
+            _format_percent(customer.get("churn_probability")),
+            "Predicted probability of future churn",
+        )
+
+    # ---------------------------------------------------------
+    # RFM PROFILE
+    # ---------------------------------------------------------
+
+    _section_heading(
+        "RFM Profile",
+        "Recency, Frequency and Monetary value for the selected customer.",
+    )
+
+    rfm_1, rfm_2, rfm_3, rfm_4 = st.columns(
+        4,
+        gap="small",
+    )
+
+    with rfm_1:
+        _metric_card(
+            "RECENCY",
+            _format_days(customer.get("recency")),
+            "Days since last purchase",
+        )
+
+    with rfm_2:
+        _metric_card(
+            "FREQUENCY",
+            _format_number(customer.get("frequency")),
+            "Total number of purchases",
+        )
+
+    with rfm_3:
+        _metric_card(
+            "MONETARY VALUE",
+            _format_currency(customer.get("monetary")),
+            "Total spend (INR)",
+        )
+
+    with rfm_4:
+        _metric_card(
+            "RFM SCORE",
+            _format_number(customer.get("rfm_score")),
+            "Combined RFM score",
+        )
+
+    # ---------------------------------------------------------
+    # PURCHASE BEHAVIOUR
+    # ---------------------------------------------------------
+
+    _section_heading(
+        "Purchase Behaviour",
+        "Key purchase indicators for the selected customer.",
+    )
+
+    purchase_1, purchase_2 = st.columns(
+        2,
+        gap="small",
+    )
+
+    with purchase_1:
+        _metric_card(
+            "AVERAGE BILL",
+            _format_currency(customer.get("average_bill")),
+            "Average value per transaction",
+        )
+
+    with purchase_2:
+        _metric_card(
+            "CUSTOMER TENURE",
+            _format_days(customer.get("customer_tenure")),
+            "Days since customer registration",
+        )
+
+    # ---------------------------------------------------------
+    # CAMPAIGN ENGAGEMENT
+    # ---------------------------------------------------------
+
+    _section_heading(
+        "Campaign Engagement",
+        "Historical campaign reach, interaction and redemption behaviour.",
+    )
+
+    campaign_1, campaign_2, campaign_3, campaign_4 = st.columns(
+        4,
+        gap="small",
+    )
+
+    with campaign_1:
+        _metric_card(
+            "CAMPAIGNS SENT",
+            _format_number(customer.get("campaigns_sent")),
+            "Campaign messages sent",
+        )
+
+    with campaign_2:
+        _metric_card(
+            "DELIVERED",
+            _format_number(customer.get("campaigns_delivered")),
+            "Campaign messages delivered",
+        )
+
+    with campaign_3:
+        _metric_card(
+            "CLICKED",
+            _format_number(customer.get("campaign_clicks")),
+            "Campaign interactions",
+        )
+
+    with campaign_4:
+        _metric_card(
+            "DELIVERY RATE",
+            _format_percent(customer.get("delivery_rate")),
+            "Delivered messages as a share of sent",
+        )
+
+    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+
+    engagement_1, engagement_2, engagement_3 = st.columns(
+        3,
+        gap="small",
+    )
+
+    with engagement_1:
+        _metric_card(
+            "CLICK RATE",
+            _format_percent(customer.get("click_rate")),
+            "Clicks as a share of delivered",
+        )
+
+    with engagement_2:
+        _metric_card(
+            "REDEMPTION RATE",
+            _format_percent(customer.get("redemption_rate")),
+            "Redemptions as a share of delivered",
+        )
+
+    with engagement_3:
+        _metric_card(
+            "PREVIOUS REDEMPTIONS",
+            _format_number(customer.get("previous_redemptions")),
+            "Historical campaign redemptions",
+        )
+
+    # ---------------------------------------------------------
+    # PROFILE DETAILS
+    # ---------------------------------------------------------
+
+    st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+
+    with st.expander("Profile Details"):
+        _details_table(customer)
