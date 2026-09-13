@@ -1,498 +1,429 @@
 import pandas as pd
 import plotly.express as px
 import streamlit as st
-from config import (
-    COLOR_BACKGROUND,
-    COLOR_SURFACE,
-    COLOR_TEXT,
-    COLOR_TEXT_MUTED,
-    COLOR_BORDER,
-    COLOR_GRID,
-)
+
 from src.analytics.campaign_affinity import (
     calculate_campaign_affinity,
     calculate_campaign_type_affinity,
     get_customer_campaign_affinity,
     search_campaign_customers,
 )
+
+
 # =========================================================
 # FORMATTING HELPERS
 # =========================================================
+
 def _format_number(value):
+    """
+    Format numeric values as whole numbers.
+    """
     if pd.isna(value):
         return "—"
+
     return f"{int(value):,}"
+
+
 def _format_percent(value):
+    """
+    Format percentage values safely.
+
+    Missing/undefined rates are displayed as an em dash.
+    This is important when delivered = 0 because no valid
+    click-rate denominator exists.
+    """
     if pd.isna(value):
         return "—"
 
     return f"{float(value):.2%}"
+
+
 # =========================================================
-# CARD
+# CHART HELPERS
 # =========================================================
-def _render_card(
-    label,
-    value,
-    description,
-):
-    st.markdown(
-        f"""
-        <div style="
-            background-color: {COLOR_SURFACE};
-            border: 1px solid {COLOR_BORDER};
-            border-top: 2px solid #8C9299;
-            border-radius: 8px;
-            padding: 18px;
-            min-height: 125px;
-        ">
-            <div style="
-                color: {COLOR_TEXT_MUTED};
-                font-size: 11px;
-                font-weight: 600;
-                letter-spacing: 0.3px;
-                text-transform: uppercase;
-                margin-bottom: 10px;
-            ">
-                {label}
-            </div>
-            <div style="
-                color: {COLOR_TEXT};
-                font-size: 23px;
-                font-weight: 600;
-                line-height: 1.15;
-                margin-bottom: 8px;
-            ">
-                {value}
-            </div>
-            <div style="
-                color: {COLOR_TEXT_MUTED};
-                font-size: 12px;
-                line-height: 1.4;
-            ">
-                {description}
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-# =========================================================
-# CHART STYLE
-# =========================================================
+
 def _style_affinity_chart(fig):
+    """
+    Apply the common styling used by campaign affinity charts.
+    """
     fig.update_layout(
-        font={
-            "family": "Arial",
-            "color": COLOR_TEXT,
-        },
-        paper_bgcolor=COLOR_BACKGROUND,
-        plot_bgcolor=COLOR_BACKGROUND,
-        margin={
-            "l": 30,
-            "r": 30,
-            "t": 20,
-            "b": 45,
-        },
-        showlegend=False,
-        hoverlabel={
-            "bgcolor": COLOR_SURFACE,
-            "font": {
-                "color": COLOR_TEXT,
-                "family": "Arial",
-            },
-            "bordercolor": COLOR_BORDER,
-        },
-    )
-    fig.update_traces(
-        marker_color="#A7ADB4",
-        marker_line_color="#A7ADB4",
-        textposition="outside",
-        textfont={
-            "color": COLOR_TEXT,
-            "family": "Arial",
-        },
-        hovertemplate=(
-            "<b>%{y}</b>"
-            "<br>Click rate: %{x:.2%}"
-            "<br>Delivered: %{customdata[0]:,}"
-            "<br>Clicked: %{customdata[1]:,}"
-            "<extra></extra>"
+        height=390,
+        margin=dict(
+            l=20,
+            r=20,
+            t=45,
+            b=20,
         ),
+        xaxis_title=None,
+        yaxis_title=None,
+        legend_title=None,
     )
-    fig.update_xaxes(
-        tickformat=".0%",
-        showgrid=False,
-        zeroline=False,
-        linecolor=COLOR_BORDER,
-        tickfont={
-            "color": COLOR_TEXT_MUTED,
-            "family": "Arial",
-        },
-        title="Click Rate",
-        title_font={
-            "color": COLOR_TEXT_MUTED,
-            "family": "Arial",
-        },
-        range=[
-            0,
-            max(
-                0.10,
-                float(fig.data[0].x.max()) * 1.15
-            ),
-        ],
-    )
-    fig.update_yaxes(
-        showgrid=True,
-        gridcolor=COLOR_GRID,
-        zeroline=False,
-        linecolor=COLOR_BORDER,
-        tickfont={
-            "color": COLOR_TEXT_MUTED,
-            "family": "Arial",
-        },
-        title=None,
-    )
+
     return fig
+
+
 # =========================================================
-# CAMPAIGN AFFINITY PAGE
+# OVERVIEW
 # =========================================================
-def render_campaign_affinity_page(campaigns):
+
+def render_affinity_overview(affinity_df):
     """
-    Render the Campaign Affinity page.
-    The page answers:
-    Which campaign types does a customer engage with?
-    Affinity is based on delivered campaigns and clicks.
-    Undelivered campaigns are not treated as interaction
-    opportunities.
+    Render the overall campaign affinity overview.
     """
-    if campaigns is None or campaigns.empty:
-        st.info("No campaign data is available.")
+    if affinity_df.empty:
+        st.info("No campaign affinity data available.")
         return
-    # =====================================================
-    # PREPARE AFFINITY DATA
-    # =====================================================
-    affinity = calculate_campaign_affinity(campaigns)
-    campaign_type_affinity = calculate_campaign_type_affinity(
-        campaigns
+
+    total_sent = affinity_df["sent"].sum()
+    total_delivered = affinity_df["delivered"].sum()
+    total_clicked = affinity_df["clicked"].sum()
+
+    overall_delivery_rate = (
+        total_delivered / total_sent
+        if total_sent > 0
+        else pd.NA
     )
-    customer_ids = sorted(
-        affinity["customer_id"]
-        .dropna()
-        .astype(str)
-        .str.strip()
-        .unique()
-        .tolist()
-    )
-    campaign_types = sorted(
-        affinity["campaign_type"]
-        .dropna()
-        .astype(str)
-        .unique()
-        .tolist()
-    )
-    # =====================================================
-    # HEADER
-    # =====================================================
-    st.title("Campaign Affinity")
-    st.caption(
-        "Understand which campaign types each customer engages "
-        "with based on delivered messages and clicks."
-    )
-    st.divider()
-    # =====================================================
-    # OVERVIEW CARDS
-    # =====================================================
-    total_customers = len(customer_ids)
-    total_campaign_types = len(campaign_types)
-    strongest_campaign = (
-        campaign_type_affinity
-        .sort_values(
-            [
-                "click_rate",
-                "campaigns_delivered",
-            ],
-            ascending=[
-                False,
-                False,
-            ],
-        )
-        .iloc[0]
-    )
-    total_delivered = int(
-        campaign_type_affinity[
-            "campaigns_delivered"
-        ].sum()
-    )
-    total_clicked = int(
-        campaign_type_affinity[
-            "campaigns_clicked"
-        ].sum()
-    )
+
     overall_click_rate = (
         total_clicked / total_delivered
         if total_delivered > 0
-        else 0
+        else pd.NA
     )
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        _render_card(
-            "Customers Analyzed",
-            f"{total_customers:,}",
-            "Customers with campaign history",
-        )
-    with col2:
-        _render_card(
-            "Campaign Types",
-            f"{total_campaign_types:,}",
-            "Distinct campaign categories",
-        )
-    with col3:
-        _render_card(
-            "Strongest Campaign Type",
-            strongest_campaign["campaign_type"],
-            (
-                f"{strongest_campaign['click_rate']:.2%} "
-                "overall click rate"
-            ),
-        )
-    with col4:
-        _render_card(
-            "Overall Click Rate",
-            f"{overall_click_rate:.2%}",
-            (
-                f"{total_clicked:,} clicks from "
-                f"{total_delivered:,} delivered"
-            ),
-        )
-    # =====================================================
-    # CUSTOMER SEARCH
-    # =====================================================
-    st.divider()
-    st.subheader("Customer Affinity")
-    st.caption(
-        "Search by customer ID to compare engagement "
-        "across campaign types."
-    )
-    search_query = st.text_input(
-        "Search Customer ID",
-        placeholder="Type a customer ID, e.g. C00 or C0036",
-        key="campaign_affinity_search",
-    ).strip()
-    if not search_query:
-        st.info(
-            "Enter a customer ID or partial ID to begin. "
-            "For example, C00 will show matching customers."
-        )
-        return
-    matching_ids = search_campaign_customers(
-        campaigns,
-        search_query,
-    )
-    if not matching_ids:
-        st.warning(
-            f"No customer IDs found matching '{search_query}'."
-        )
-        return
-    # =====================================================
-    # CUSTOMER SELECTION
-    # =====================================================
-    query_upper = search_query.upper()
-    exact_matches = [
-        customer_id
-        for customer_id in matching_ids
-        if customer_id.upper() == query_upper
-    ]
-    if exact_matches:
-        selected_customer_id = exact_matches[0]
-    elif len(matching_ids) == 1:
-        selected_customer_id = matching_ids[0]
-    else:
-        st.caption(
-            f"{len(matching_ids):,} customer IDs match "
-            f"'{search_query}'. Select a customer."
-        )
-        selected_customer_id = st.selectbox(
-            "Matching Customers",
-            matching_ids,
-            key="campaign_affinity_customer",
-        )
-    # =====================================================
-    # SELECTED CUSTOMER DATA
-    # =====================================================
-    customer_affinity = get_customer_campaign_affinity(
-        campaigns,
-        selected_customer_id,
-    )
-    if customer_affinity.empty:
-        st.info(
-            f"No campaign affinity data is available "
-            f"for {selected_customer_id}."
-        )
-        return
-    # =====================================================
-    # CUSTOMER SUMMARY
-    # =====================================================
-    valid_rates = customer_affinity[
-        customer_affinity["click_rate"].notna()
+
+    strongest_campaign = None
+
+    valid_affinity = affinity_df[
+        affinity_df["delivered"] > 0
     ].copy()
-    if not valid_rates.empty:
-        strongest_customer_campaign = (
-            valid_rates
+
+    if not valid_affinity.empty:
+        strongest_campaign = (
+            valid_affinity
             .sort_values(
-                [
+                by=[
                     "click_rate",
-                    "campaigns_delivered",
+                    "delivered",
+                    "clicked",
                 ],
                 ascending=[
+                    False,
                     False,
                     False,
                 ],
             )
             .iloc[0]
         )
-        strongest_customer_type = (
-            strongest_customer_campaign["campaign_type"]
-        )
-    else:
-        strongest_customer_type = "—"
-    customer_delivered = int(
-        customer_affinity[
-            "campaigns_delivered"
-        ].sum()
-    )
-    customer_clicked = int(
-        customer_affinity[
-            "campaigns_clicked"
-        ].sum()
-    )
-    customer_click_rate = (
-        customer_clicked / customer_delivered
-        if customer_delivered > 0
-        else 0
-    )
-    st.markdown(
-        f"### Customer Profile — {selected_customer_id}"
-    )
+
     col1, col2, col3, col4 = st.columns(4)
+
     with col1:
-        _render_card(
-            "Customer",
-            selected_customer_id,
-            "Selected customer profile",
+        st.metric(
+            "Customers",
+            f"{affinity_df['customer_id'].nunique():,}",
         )
+
     with col2:
-        _render_card(
-            "Strongest Affinity",
-            strongest_customer_type,
-            "Highest click rate with delivered exposure",
+        st.metric(
+            "Campaign Types",
+            f"{affinity_df['campaign_type'].nunique():,}",
         )
+
     with col3:
-        _render_card(
-            "Delivered",
-            f"{customer_delivered:,}",
-            "Campaign messages received",
-        )
-    with col4:
-        _render_card(
+        st.metric(
             "Overall Click Rate",
-            f"{customer_click_rate:.2%}",
-            f"{customer_clicked:,} campaign interactions",
+            _format_percent(overall_click_rate),
         )
-    # =====================================================
-    # CUSTOMER CHART
-    # =====================================================
-    st.divider()
-    st.subheader("Engagement by Campaign Type")
-    st.caption(
-        "Click rate is calculated as clicks divided by "
-        "delivered campaigns. Exposure is retained alongside "
-        "the rate for context."
-    )
-    chart_data = customer_affinity.copy()
-    chart_data["click_rate"] = (
-        pd.to_numeric(
-            chart_data["click_rate"],
-            errors="coerce",
+
+    with col4:
+        if strongest_campaign is not None:
+            st.metric(
+                "Strongest Campaign",
+                str(strongest_campaign["campaign_type"]),
+                help=(
+                    "Campaign type with the highest click rate. "
+                    "Delivered exposure is used as the denominator."
+                ),
+            )
+        else:
+            st.metric(
+                "Strongest Campaign",
+                "—",
+            )
+
+    if strongest_campaign is not None:
+        st.caption(
+            f"Highest click rate: "
+            f"{_format_percent(strongest_campaign['click_rate'])}"
         )
-        .fillna(0)
+
+
+# =========================================================
+# CAMPAIGN TYPE AFFINITY
+# =========================================================
+
+def render_campaign_type_affinity(affinity_df):
+    """
+    Render campaign-type-level affinity analytics.
+    """
+    st.subheader("Campaign Type Affinity")
+
+    if affinity_df.empty:
+        st.info("No campaign type affinity data available.")
+        return
+
+    campaign_type_df = (
+        calculate_campaign_type_affinity(affinity_df)
     )
-    chart_data = chart_data.sort_values(
-        "click_rate",
-        ascending=True,
+
+    if campaign_type_df.empty:
+        st.info("No campaign type affinity data available.")
+        return
+
+    display_df = campaign_type_df.copy()
+
+    for column in [
+        "sent",
+        "delivered",
+        "clicked",
+    ]:
+        if column in display_df.columns:
+            display_df[column] = display_df[column].map(
+                _format_number
+            )
+
+    if "click_rate" in display_df.columns:
+        display_df["click_rate"] = display_df[
+            "click_rate"
+        ].map(_format_percent)
+
+    st.dataframe(
+        display_df,
+        width="stretch",
+        hide_index=True,
     )
+
+    chart_df = campaign_type_df.copy()
+
+    chart_df["chart_click_rate"] = (
+        chart_df["click_rate"].fillna(0)
+    )
+
     fig = px.bar(
-        chart_data,
-        x="click_rate",
-        y="campaign_type",
-        orientation="h",
-        text="click_rate",
-        custom_data=[
-            "campaigns_delivered",
-            "campaigns_clicked",
-        ],
+        chart_df,
+        x="campaign_type",
+        y="chart_click_rate",
+        text="chart_click_rate",
+        title="Click Rate by Campaign Type",
     )
+
     fig.update_traces(
-        texttemplate="%{x:.1%}",
+        texttemplate="%{y:.2%}",
+        textposition="outside",
+        hovertemplate=(
+            "<b>%{x}</b><br>"
+            "Click Rate: %{y:.2%}"
+            "<extra></extra>"
+        ),
     )
+
     fig = _style_affinity_chart(fig)
-    fig.update_layout(
-        height=350,
-    )
+
     st.plotly_chart(
         fig,
-        use_container_width=True,
-        config={
-            "displaylogo": False,
-        },
+        width="stretch",
     )
-    # =====================================================
-    # DETAILED TABLE
-    # =====================================================
-    st.subheader("Campaign Affinity Detail")
-    st.caption(
-        "Campaign exposure and interaction history by "
-        "campaign type."
+
+
+# =========================================================
+# CUSTOMER SEARCH
+# =========================================================
+
+def render_customer_search(affinity_df):
+    """
+    Render customer-level campaign affinity search.
+    """
+    st.subheader("Customer Campaign Affinity")
+
+    if affinity_df.empty:
+        st.info("No campaign affinity data available.")
+        return
+
+    matches = search_campaign_customers(
+        affinity_df
     )
-    display_data = customer_affinity.copy()
-    display_data["campaigns_sent"] = (
-        display_data["campaigns_sent"]
-        .map(_format_number)
+
+    if not matches:
+        st.info("No customers available.")
+        return
+
+    selected_customer = st.selectbox(
+        "Customer",
+        options=matches,
+        key="campaign_affinity_customer_selector",
     )
-    display_data["campaigns_delivered"] = (
-        display_data["campaigns_delivered"]
-        .map(_format_number)
+
+    customer_affinity = get_customer_campaign_affinity(
+        affinity_df,
+        selected_customer,
     )
-    display_data["campaigns_clicked"] = (
-        display_data["campaigns_clicked"]
-        .map(_format_number)
+
+    if customer_affinity.empty:
+        st.warning(
+            f"No campaign affinity data found for customer "
+            f"{selected_customer}."
+        )
+        return
+
+    total_sent = customer_affinity["sent"].sum()
+    total_delivered = customer_affinity["delivered"].sum()
+    total_clicked = customer_affinity["clicked"].sum()
+
+    customer_click_rate = (
+        total_clicked / total_delivered
+        if total_delivered > 0
+        else pd.NA
     )
-    display_data["campaigns_not_clicked"] = (
-        display_data["campaigns_not_clicked"]
-        .map(_format_number)
-    )
-    display_data["click_rate"] = (
-        display_data["click_rate"]
-        .map(_format_percent)
-    )
-    display_data.columns = [
-        "Customer ID",
-        "Campaign Type",
-        "Sent",
-        "Delivered",
-        "Clicked",
-        "Not Clicked",
-        "Click Rate",
-    ]
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+        st.metric(
+            "Campaign Types",
+            f"{customer_affinity['campaign_type'].nunique():,}",
+        )
+
+    with col2:
+        st.metric(
+            "Sent",
+            _format_number(total_sent),
+        )
+
+    with col3:
+        st.metric(
+            "Delivered",
+            _format_number(total_delivered),
+        )
+
+    with col4:
+        st.metric(
+            "Click Rate",
+            _format_percent(customer_click_rate),
+        )
+
+    display_df = customer_affinity.copy()
+
+    for column in [
+        "sent",
+        "delivered",
+        "clicked",
+    ]:
+        if column in display_df.columns:
+            display_df[column] = display_df[column].map(
+                _format_number
+            )
+
+    if "click_rate" in display_df.columns:
+        display_df["click_rate"] = display_df[
+            "click_rate"
+        ].map(_format_percent)
+
     st.dataframe(
-        display_data[
-            [
-                "Campaign Type",
-                "Sent",
-                "Delivered",
-                "Clicked",
-                "Not Clicked",
-                "Click Rate",
-            ]
-        ],
-        use_container_width=True,
+        display_df,
+        width="stretch",
         hide_index=True,
+    )
+
+    chart_df = customer_affinity.copy()
+
+    chart_df["chart_click_rate"] = (
+        chart_df["click_rate"].fillna(0)
+    )
+
+    fig = px.bar(
+        chart_df,
+        x="campaign_type",
+        y="chart_click_rate",
+        text="chart_click_rate",
+        title=f"Campaign Affinity — {selected_customer}",
+    )
+
+    fig.update_traces(
+        texttemplate="%{y:.2%}",
+        textposition="outside",
+        hovertemplate=(
+            "<b>%{x}</b><br>"
+            "Click Rate: %{y:.2%}"
+            "<extra></extra>"
+        ),
+    )
+
+    fig = _style_affinity_chart(fig)
+
+    st.plotly_chart(
+        fig,
+        width="stretch",
+    )
+
+
+# =========================================================
+# MAIN PAGE
+# =========================================================
+
+def render_campaign_affinity_page(affinity_df=None):
+    """
+    Render the complete Campaign Affinity page.
+
+    The page supports:
+    - Overall campaign affinity
+    - Campaign-type affinity
+    - Customer-level campaign affinity
+    """
+
+    st.title("Campaign Affinity")
+
+    st.caption(
+        "Understand which campaign types generate the strongest "
+        "customer engagement."
+    )
+
+    if affinity_df is None:
+        st.warning(
+            "Campaign affinity data is not available."
+        )
+        return
+
+    affinity_df = affinity_df.copy()
+
+    if affinity_df.empty:
+        st.info(
+            "No campaign affinity data available."
+        )
+        return
+
+    # -----------------------------------------------------
+    # OVERVIEW
+    # -----------------------------------------------------
+
+    render_affinity_overview(
+        affinity_df
+    )
+
+    st.divider()
+
+    # -----------------------------------------------------
+    # CAMPAIGN TYPE AFFINITY
+    # -----------------------------------------------------
+
+    render_campaign_type_affinity(
+        affinity_df
+    )
+
+    st.divider()
+
+    # -----------------------------------------------------
+    # CUSTOMER SEARCH
+    # -----------------------------------------------------
+
+    render_customer_search(
+        affinity_df
     )
