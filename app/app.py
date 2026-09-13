@@ -922,7 +922,7 @@ def render_customer_segmentation(customer_analytics, customers, data_mode):
 
         st.plotly_chart(
             fig,
-            use_container_width=True,
+            width="stretch",
         )
 
     with col2:
@@ -976,7 +976,7 @@ def render_customer_segmentation(customer_analytics, customers, data_mode):
 
         st.plotly_chart(
             fig,
-            use_container_width=True,
+            width="stretch",
         )
 
     # =====================================================
@@ -1055,7 +1055,7 @@ def render_customer_segmentation(customer_analytics, customers, data_mode):
 
     st.plotly_chart(
         fig,
-        use_container_width=True,
+        width="stretch",
     )
 
 # =========================================================
@@ -1118,7 +1118,7 @@ def render_retention_model_insights(customer_analytics, customers, data_mode):
         textfont_color=COLOR_TEXT,
     )
 
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
     with st.expander("View complete feature ranking"):
         feature_table = feature_importance.copy()
@@ -1128,7 +1128,7 @@ def render_retention_model_insights(customer_analytics, customers, data_mode):
         feature_table.columns = ["Rank", "Feature", "Importance"]
         st.dataframe(
             feature_table,
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
 
@@ -1249,7 +1249,7 @@ def render_retention_model_insights(customer_analytics, customers, data_mode):
         textfont_color=COLOR_TEXT,
     )
 
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
 
 # =========================================================
@@ -1352,7 +1352,7 @@ def render_campaign_performance(campaigns):
 
     st.plotly_chart(
         fig,
-        use_container_width=True,
+        width="stretch",
     )
 
     # =========================================================
@@ -1477,7 +1477,7 @@ def render_campaign_performance(campaigns):
     with st.container(border=True):
         st.dataframe(
             styled_campaign_data,
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
             height=275,
         )
@@ -1663,7 +1663,7 @@ def render_campaign_affinity(campaigns):
 
                 st.plotly_chart(
                     fig,
-                    use_container_width=True,
+                    width="stretch",
                 )
 
                 display_affinity = customer_affinity[
@@ -1679,8 +1679,12 @@ def render_campaign_affinity(campaigns):
 
                 display_affinity["click_rate"] = (
                     display_affinity["click_rate"]
-                    .map(lambda x: f"{x:.2%}")
-                )
+                    .map(
+                        lambda x: "—"
+                        if pd.isna(x)
+                        else f"{float(x):.2%}"
+                     )
+             )
 
                 display_affinity.columns = [
                     "Campaign Type",
@@ -1694,7 +1698,7 @@ def render_campaign_affinity(campaigns):
                 with st.container(border=True):
                     st.dataframe(
                         display_affinity,
-                        use_container_width=True,
+                        width="stretch",
                         hide_index=True,
                     )
 
@@ -1746,7 +1750,7 @@ def render_campaign_affinity(campaigns):
 
     st.plotly_chart(
         fig,
-        use_container_width=True,
+        width="stretch",
     )
 
     display_type_affinity = type_affinity.copy()
@@ -1754,7 +1758,11 @@ def render_campaign_affinity(campaigns):
     if "click_rate" in display_type_affinity.columns:
         display_type_affinity["click_rate"] = (
             display_type_affinity["click_rate"]
-            .map(lambda x: f"{x:.2%}")
+            .map(
+                lambda x: "—"
+                if pd.isna(x)
+                else f"{float(x):.2%}"
+            )
         )
 
     display_type_affinity.columns = [
@@ -1765,7 +1773,7 @@ def render_campaign_affinity(campaigns):
     with st.container(border=True):
         st.dataframe(
             display_type_affinity,
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
 
@@ -1845,7 +1853,7 @@ def render_sidebar():
 
     if st.sidebar.button(
         "⌂ Home Page",
-        use_container_width=True,
+        width="stretch",
         type="primary" if current_page == "Home Page" else "secondary",
         key="sidebar_home",
     ):
@@ -1870,7 +1878,7 @@ def render_sidebar():
 
     if st.sidebar.button(
         "▤ Custom Data",
-        use_container_width=True,
+        width="stretch",
         type="primary" if current_page == "Data & Upload" else "secondary",
         key="sidebar_custom_data",
     ):
@@ -1878,7 +1886,7 @@ def render_sidebar():
 
     if st.sidebar.button(
         "▧ Data Quality",
-        use_container_width=True,
+        width="stretch",
         type="primary" if current_page == "Data Quality" else "secondary",
         key="sidebar_data_quality",
     ):
@@ -1901,7 +1909,7 @@ def render_sidebar():
 
     if st.sidebar.button(
         "⌕ Customer Search",
-        use_container_width=True,
+        width="stretch",
         type="primary" if current_page == "Customer Search" else "secondary",
         key="sidebar_customer_search",
     ):
@@ -1932,7 +1940,7 @@ def render_sidebar():
     for label, page_name, key in analytics_pages:
         if st.sidebar.button(
             label,
-            use_container_width=True,
+            width="stretch",
             type="primary" if current_page == page_name else "secondary",
             key=key,
         ):
