@@ -619,23 +619,10 @@ Planned analytical enhancements focus on improving model and business decision q
 
 ## Documentation
 
-The complete technical project documentation covers:
+For the complete technical implementation, methodology, validation, testing,
+and system documentation, see:
 
-- Data schemas and validation
-- Preprocessing
-- Feature engineering
-- Churn labeling
-- Machine-learning methodology
-- Model evaluation
-- Prediction and risk scoring
-- RFM segmentation
-- Retention prioritization
-- Campaign analytics
-- Campaign Affinity
-- Feature importance
-- Streamlit application
-- Testing and verification
-- Scope and limitations
+**[Project Documentation](docs/PROJECT_DOCUMENTATION.docx)**
 
 ---
 
