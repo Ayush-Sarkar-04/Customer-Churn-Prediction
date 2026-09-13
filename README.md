@@ -1,313 +1,459 @@
-# CUSTOMER CHURN PREDICTION AND CAMPAIGN ANALYTICS SYSTEM
+Customer Churn Prediction and Campaign Analytics System
 
-A machine learning and customer analytics system designed to analyze customer behavior, identify churn patterns, segment customers, predict churn probability, and evaluate marketing campaign performance.
+An end-to-end customer intelligence and churn decision-support system built with Python, scikit-learn, Pandas, Plotly, and Streamlit.
 
----
+The system combines customer profiles, transaction history, campaign activity, machine-learning predictions, RFM segmentation, retention prioritization, campaign analytics, customer-level campaign affinity, and model feature importance into an integrated analytical application.
 
-## PROJECT OVERVIEW
+Project positioning: This is a portfolio-oriented decision-support system, not an autonomous campaign execution or production deployment platform.
 
-The system combines customer profiles, transaction history, and campaign activity to generate customer-level insights and prepare data for machine learning.
+Project Overview
 
-Main components:
+The system is designed to answer practical customer-retention and campaign-analytics questions:
 
-- Data validation
-- Data preprocessing
-- Feature engineering
-- RFM analysis
-- Customer segmentation
-- Churn prediction
-- Campaign analytics
-- Data visualization
-- Interactive dashboard
+Is the input data trustworthy?
 
----
+Which customers are most likely to churn?
 
-## PROJECT STRUCTURE
+Which customers deserve the highest retention attention?
 
-    Customer-Churn-Prediction/
-    ├── app/
-    ├── data/
-    │   ├── training/
-    │   └── uploads/
-    ├── models/
-    ├── notebooks/
-    ├── outputs/
-    ├── src/
-    │   ├── analytics/
-    │   ├── data/
-    │   ├── features/
-    │   ├── ml/
-    │   ├── preprocessing/
-    │   └── visualization/
-    ├── tests/
-    ├── .gitignore
-    ├── config.py
-    ├── requirements.txt
-    └── README.md
+Which customer segments require intervention?
 
----
+Which campaign types perform best overall?
 
-## DATASETS
+Which campaign types generate the strongest observed click response for an individual customer?
 
-### Customers
+Which features contribute most to the Random Forest churn prediction?
 
-Customer profile information:
+The pipeline runs from controlled CSV ingestion through validation, preprocessing, feature engineering, machine-learning prediction, segmentation, campaign analytics, and Streamlit-based decision support.
 
-    customer_id
-    gender
-    age
-    city
-    registration_date
+Key Capabilities
 
-### Transactions
+Data Quality and Controlled Uploads
 
-Purchase information:
+Fixed-schema validation for Customers, Transactions, and Campaigns
 
-    transaction_id
-    customer_id
-    transaction_date
-    bill_amount
-    outlet
+Data-type, date, missing-value, duplicate, ID, and cross-file reference validation
 
-### Campaigns
+Controlled custom CSV upload
 
-Campaign activity and engagement:
+19 user-facing data-quality checks
 
-    campaign_id
-    customer_id
-    campaign_date
-    campaign_type
-    reward_type
-    reward_value
-    campaign_cost
-    sent
-    delivered
-    clicked
-    redeemed
-    redemption_date
+Resource protection: 50 MB maximum file size, 500,000 maximum rows per file, 4 maximum uploaded files
 
-### Customer Features
+User uploads excluded from Git version control
 
-`customer_features.csv` is a derived customer-level dataset used for machine-learning preparation and reference. It is not a raw upload schema.
-
----
-
-## DATA VALIDATION
-
-Uploaded CSV files must follow predefined schemas.
-
-Validation includes:
-
-- Required and unexpected columns
-- Data types
-- Dates
-- Missing values
-- Duplicates
-- IDs
-- Customer references
-- Cross-file consistency
-
-Resource limits are also applied:
-
-    Maximum file size: 50 MB
-    Maximum rows: 500,000
-    Maximum uploaded files: 4
-
-User uploads are excluded from Git version control.
-
----
-
-## FEATURE ENGINEERING
+Customer-Level Feature Engineering
 
 The system generates customer-level behavioral features using information available up to the observation date.
 
-### RFM
+Purchase and RFM features: Recency, Frequency, Monetary, Average Bill, Average Purchase Gap, Customer Tenure.
 
-- **Recency** — Days since last purchase
-- **Frequency** — Number of purchases
-- **Monetary** — Total spending
-- **Average Bill**
-- **Average Purchase Gap**
+Campaign engagement: Campaigns Sent, Delivered, Clicked, Redeemed, Delivery Rate, Click Rate, Redemption Rate, Previous Redemptions.
 
-### Customer Features
+Future information is excluded from feature calculations to reduce data leakage.
 
-- Customer tenure
-- Campaigns sent
-- Campaigns delivered
-- Campaigns clicked
-- Campaigns redeemed
-- Delivery rate
-- Click rate
-- Redemption rate
-- Previous redemptions
+Churn Definition
 
-Future data is excluded from feature calculations to prevent data leakage.
+A customer is considered churned when they make no purchase during the following 90 days:
 
----
+churn = 1 → No purchase in future 90 days
+churn = 0 → At least one purchase in future 90 days
 
-## CUSTOMER SEGMENTATION
+The supervised ML dataset contains 5,015 customer-level observations.
 
-Planned RFM segments:
+Machine Learning
 
-- Champions
-- Loyal Customers
-- Potential Loyalists
-- Regular Customers
-- At Risk
-- Inactive
-- Lost
+Three supervised models are trained and evaluated:
 
----
+Logistic Regression
 
-## CHURN DEFINITION
+Decision Tree
 
-A customer is considered churned when they make no purchase during the following 90 days.
+Random Forest
 
-    churn = 1 → No purchase in future 90 days
-    churn = 0 → At least one purchase in future 90 days
+Evaluation includes Accuracy, Precision, Recall, F1 Score, ROC-AUC, and Confusion Matrix.
 
----
+Model
 
-## MACHINE LEARNING
+Accuracy
 
-Planned models:
+Precision
 
-- Logistic Regression
-- Decision Tree
-- Random Forest
+Recall
 
-Evaluation will include:
+F1
 
-- Accuracy
-- Precision
-- Recall
-- F1-score
-- Confusion Matrix
-- Feature Importance / Coefficients
-- Model Comparison
+ROC-AUC
 
-The final system will generate churn probabilities and risk categories.
+Logistic Regression
 
----
+0.7787
 
-## CAMPAIGN ANALYTICS
+0.4251
 
-Campaign performance is analyzed using:
+0.6816
 
-    Sent → Delivered → Clicked → Redeemed
+0.5236
 
-Key metrics:
+0.8172
 
-    Delivery Rate = Delivered / Sent
-    Click Rate = Clicked / Delivered
-    Redemption Rate = Redeemed / Delivered
+Decision Tree
 
-Campaigns will be compared by campaign type, reward type, and customer segment.
+0.8355
 
----
+0.5372
 
-## TESTING
+0.5642
 
-The `tests/` directory contains tests and verification scripts covering:
+0.5504
 
-- Data validation
-- Upload validation
-- Resource limits
-- Preprocessing
-- Customer tenure
-- RFM features
-- Campaign features
-- Previous redemptions
-- Customer feature generation
-- Churn labeling
+0.7293
 
----
+Random Forest
 
-## TECHNOLOGY STACK
+0.8933
 
-- Python
-- Pandas
-- NumPy
-- Scikit-learn
-- Matplotlib
-- Plotly
-- Joblib
-- Streamlit
-- SQLite / SQL
-- Jupyter
-- Git
-- GitHub
+0.8600
 
----
+0.4804
 
-## CURRENT STATUS
+0.6165
 
-### Completed
+0.8639
 
-- Data validation
-- Upload validation
-- Resource limits
-- Data preprocessing
-- Customer tenure
-- RFM feature engineering
-- Campaign features
-- Previous redemptions
-- Customer feature generation
-- Churn labeling
-- Testing structure
-- Git/GitHub setup
+Random Forest is the current prediction model because it achieved the highest ROC-AUC.
 
-### Planned
+Random Forest evaluation confusion matrix:
 
-- ML dataset preparation
-- Churn prediction models
-- Model evaluation
-- Risk categorization
-- Customer segmentation
-- Campaign analytics
-- Visualizations
-- Streamlit dashboard
-- Full system integration
+TN = 810    FP = 14
+FN = 93     TP = 86
 
----
+Churn Probability and Risk Classification
 
-## INSTALLATION
+Risk Level
 
-Clone the repository:
+Churn Probability
 
-    git clone https://github.com/Ayush-Sarkar-04/Customer-Churn-Prediction.git
+Low
 
-    cd Customer-Churn-Prediction
+< 0.25
 
-Create a virtual environment:
+Medium
 
-    python -m venv .venv
+0.25 – < 0.50
 
-Activate it on Windows:
+High
 
-    .venv\Scripts\Activate.ps1
+0.50 – < 0.75
+
+Very High
+
+≥ 0.75
+
+Binary churn prediction and business-facing risk classification are separate outputs.
+
+RFM Customer Segmentation
+
+Seven RFM-based segments are implemented:
+
+Champions
+
+Loyal Customers
+
+Potential Loyalists
+
+Regular Customers
+
+At Risk
+
+Inactive
+
+Lost
+
+Segmentation is integrated with churn predictions and risk levels for customer-level analysis.
+
+Retention Priority and Expected Revenue at Risk
+
+The system calculates a 0–100 Retention Priority Score using predicted churn probability and customer-value percentile, with priority bands from Low through Critical.
+
+It also calculates Expected Revenue at Risk as a decision-support exposure metric.
+
+Expected Revenue at Risk is not a forecast of revenue that will definitely be lost.
+
+Campaign Analytics
+
+Campaign performance is analyzed through:
+
+Sent → Delivered → Clicked → Redeemed
+
+Current overall campaign results:
+
+Metric
+
+Value
+
+Sent
+
+8,000
+
+Delivered
+
+7,311
+
+Clicked
+
+2,236
+
+Redeemed
+
+701
+
+Delivery Rate
+
+91.39%
+
+Click Rate
+
+30.58%
+
+Redemption Rate
+
+9.59%
+
+Campaign performance is also compared by campaign type.
+
+Campaign Affinity
+
+Campaign Affinity evaluates customer-level observed response by campaign type using delivered and clicked activity.
+
+It provides:
+
+Customer × Campaign Type response
+
+Delivered exposure
+
+Clicks
+
+Click rate
+
+Best Campaign Type
+
+Campaign Affinity describes observed response, not proven customer preference or causal campaign effectiveness.
+
+Random Forest Feature Importance
+
+The application exposes ranked Random Forest feature importance to show which features contribute most strongly to the model's tree-based predictive signal.
+
+Feature importance is treated as descriptive model signal, not causal explanation.
+
+Streamlit Application
+
+The current application contains eight integrated views:
+
+Executive Overview
+
+Data & Upload
+
+Data Quality
+
+Customer Search
+
+Customer Intelligence
+
+Retention & Model Insights
+
+Campaign Performance
+
+Campaign Affinity
+
+Application Architecture
+
+Validated Demo Data / Custom CSV Upload
+                ↓
+      Resource Protection
+                ↓
+ Fixed-Schema & Data Validation
+                ↓
+ Cross-File Reference Validation
+                ↓
+          Preprocessing
+                ↓
+       Feature Engineering
+                ↓
+  90-Day Churn Labeling / ML Dataset
+                ↓
+     Model Training & Evaluation
+                ↓
+        Model Persistence
+                ↓
+ Churn Prediction & Probability
+                ↓
+       Risk Classification
+                ↓
+      RFM Segmentation
+                ↓
+   Combined Customer Analytics
+                ↓
+ Retention Priority / Revenue at Risk
+                ↓
+     Campaign Performance
+                ↓
+       Campaign Affinity
+                ↓
+   Random Forest Feature Importance
+                ↓
+       Reusable Visualizations
+                ↓
+     Streamlit Decision Support
+
+Project Structure
+
+Customer-Churn-Prediction/
+├── .streamlit/
+├── app/
+├── data/
+│   └── training/
+├── models/
+├── src/
+│   ├── analytics/
+│   ├── data/
+│   ├── features/
+│   ├── ml/
+│   ├── preprocessing/
+│   └── visualization/
+├── tests/
+├── .gitignore
+├── config.py
+├── requirements.txt
+└── README.md
+
+Raw Dataset Schemas
+
+Customers
+
+customer_id
+gender
+age
+city
+registration_date
+
+Transactions
+
+transaction_id
+customer_id
+transaction_date
+bill_amount
+outlet
+
+Campaigns
+
+campaign_id
+customer_id
+campaign_date
+campaign_type
+reward_type
+reward_value
+campaign_cost
+sent
+delivered
+clicked
+redeemed
+redemption_date
+
+customer_features.csv is a derived customer-level dataset used for machine-learning preparation and reference. It is not one of the three raw upload schemas.
+
+Testing
+
+The automated test suite covers validation, preprocessing, feature engineering, churn labeling, model training/evaluation/persistence, prediction, risk classification, segmentation, customer analytics, visualization, Data Quality, Customer Search, Retention Priority, Feature Importance, Campaign Analytics, and Campaign Affinity.
+
+Current Test Result
+
+125 automated tests passing
+
+Focused evidence includes:
+
+Feature Importance: 9 tests
+
+Campaign Affinity: 11 tests
+
+Visualization: 6 tests
+
+Customer Search backend: 8 tests
+
+Customer Search Streamlit page: 3 tests
+
+Data Quality validation: 4 tests
+
+Data Quality Streamlit page: 1 test
+
+Customer analytics regression: 5 tests
+
+Technology Stack
+
+Python
+
+Pandas
+
+NumPy
+
+scikit-learn
+
+Plotly
+
+Matplotlib
+
+Joblib
+
+Streamlit
+
+pytest
+
+openpyxl
+
+Git / GitHub
+
+Installation
+
+git clone https://github.com/Ayush-Sarkar-04/Customer-Churn-Prediction.git
+cd Customer-Churn-Prediction
+python -m venv .venv
+
+Windows PowerShell:
+
+.venv\Scripts\Activate.ps1
 
 Install dependencies:
 
-    pip install -r requirements.txt
+pip install -r requirements.txt
 
----
+Run the application:
 
-## DEVELOPMENT
+streamlit run app/app.py
 
-The project is developed incrementally, with each major component tested before integration.
+Analytical Limitations
 
-Git workflow:
+Retention Priority is a prioritization proxy.
 
-    git status
-    git add .
-    git commit -m "Describe the change"
-    git push
+Expected Revenue at Risk is not a true revenue forecast.
 
----
+Random Forest feature importance is not a causal explanation.
 
-## REPOSITORY
+Campaign Affinity describes observed click response rather than proving customer preference.
 
-GitHub:
+Historical campaign response does not establish causal campaign effectiveness.
 
-https://github.com/Ayush-Sarkar-04/Customer-Churn-Prediction
+The current system does not claim that a particular retention intervention will prevent churn.
+
+Current Project Status
+
+The core system is implemented and integrated, including validation and resource protection, preprocessing, feature engineering, 90-day churn labeling, ML training/evaluation, model persistence, churn prediction and risk classification, RFM segmentation, customer analytics, Retention Priority, Expected Revenue at Risk, campaign analytics, Campaign Affinity, Random Forest Feature Importance, reusable visualizations, Customer Search, Data Quality, controlled custom CSV upload, and the eight-view Streamlit application.
+
+The project remains a portfolio system rather than a production deployment. Authentication/authorization, operational monitoring, model/version governance, data-drift monitoring, deployment hardening, and true request-frequency rate limiting are outside the current scope.
+
+Documentation
+
+The complete system documentation contains the detailed implementation, methodology, validation logic, model evaluation, feature engineering, application views, test evidence, screenshots, and analytical limitations.
+
+Repository
+
+GitHub Repository
