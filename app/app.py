@@ -40,6 +40,12 @@ from src.analytics.campaign_affinity import (
 )
 from src.data.custom_pipeline import build_custom_customer_analytics
 from src.ml.feature_importance import load_random_forest_feature_importance
+from src.analytics.retention_cost import (
+    calculate_retention_cost,
+    calculate_customer_retention_cost,
+)
+from src.analytics.customer_value import calculate_customer_value
+from src.analytics.economic_value import calculate_economic_value_at_risk
 
 
 # =========================================================
@@ -1951,6 +1957,394 @@ def render_campaign_affinity(campaigns):
     render_themed_table(display_type_affinity)
 
 
+
+# =========================================================
+# ECONOMIC INTELLIGENCE
+# =========================================================
+
+@st.cache_data(show_spinner=False)
+def build_economic_intelligence_data(customer_analytics, transactions, campaigns):
+    """
+    Build the customer-level economic intelligence dataset.
+
+    Customer value is historical customer value calculated from transactions.
+    Retention cost is based on observed historical campaign cost.
+    Economic Value at Risk combines churn probability with customer value.
+    """
+    # The transaction source stores dates as DD-MM-YYYY (for example,
+    # 16-07-2024), while the Customer Value backend expects ISO-style
+    # YYYY-MM-DD dates. Normalize the input at the integration boundary
+    # without changing the backend implementation.
+    transactions_for_value = transactions.copy()
+    if "transaction_date" not in transactions_for_value.columns:
+        raise ValueError("Transactions must contain transaction_date.")
+
+    transaction_dates = pd.to_datetime(
+        transactions_for_value["transaction_date"],
+        dayfirst=True,
+        errors="raise",
+    )
+    transactions_for_value["transaction_date"] = transaction_dates.dt.strftime(
+        "%Y-%m-%d"
+    )
+
+    customer_value = calculate_customer_value(transactions_for_value).copy()
+
+    retention_cost = calculate_retention_cost(campaigns).copy()
+    customer_retention_cost = calculate_customer_retention_cost(
+        retention_cost,
+        customer_id_column="customer_id",
+        cost_column="retention_cost",
+    ).copy()
+    # The retention-cost backend returns the aggregated customer cost as
+    # `total_retention_cost`. Rename it at the UI integration boundary so
+    # the economic dataset uses the canonical `retention_cost` field.
+    customer_retention_cost = customer_retention_cost.rename(
+        columns={"total_retention_cost": "retention_cost"}
+    )
+
+    customer_value["customer_id"] = customer_value["customer_id"].astype(str).str.strip()
+    customer_retention_cost["customer_id"] = (
+        customer_retention_cost["customer_id"].astype(str).str.strip()
+    )
+
+    analytics = customer_analytics.copy()
+    analytics["customer_id"] = analytics["customer_id"].astype(str).str.strip()
+
+    # Keep the latest customer observation so the economic view aligns with
+    # the same current customer profiles used elsewhere in the application.
+    analytics = prepare_customer_search_data(analytics)
+
+    economic = analytics.merge(
+        customer_value[
+            ["customer_id", "customer_value", "purchase_count",
+             "average_order_value", "active_days", "annualized_revenue"]
+        ],
+        on="customer_id",
+        how="left",
+    )
+
+    economic = economic.merge(
+        customer_retention_cost[["customer_id", "retention_cost"]],
+        on="customer_id",
+        how="left",
+    )
+
+    economic["customer_value"] = pd.to_numeric(
+        economic["customer_value"], errors="coerce"
+    ).fillna(0)
+    economic["retention_cost"] = pd.to_numeric(
+        economic["retention_cost"], errors="coerce"
+    ).fillna(0)
+
+    economic = calculate_economic_value_at_risk(
+        economic,
+        churn_probability_column="churn_probability",
+        customer_value_column="customer_value",
+        retention_cost_column="retention_cost",
+    )
+
+    economic["net_value_at_risk"] = (
+        economic["expected_value_at_risk"] - economic["retention_cost"]
+    )
+
+    return economic
+
+
+def render_economic_intelligence(
+    customer_analytics,
+    transactions,
+    campaigns,
+):
+    """Render Page 1: Economic Intelligence."""
+
+    render_page_header(
+        "Economic Intelligence",
+        "Translate customer value and retention cost into a probability-weighted view of economic churn exposure.",
+    )
+
+    with st.spinner("Preparing economic intelligence..."):
+        economic = build_economic_intelligence_data(
+            customer_analytics,
+            transactions,
+            campaigns,
+        )
+
+    if economic.empty:
+        st.info("No economic intelligence data is available.")
+        return
+
+    # ---------------------------------------------------------
+    # STORY INTRO
+    # ---------------------------------------------------------
+    st.subheader("Where Is the Economic Risk?")
+    st.caption(
+        "Customer value shows what each customer has historically contributed. "
+        "Retention cost shows observed historical campaign cost. "
+        "Economic Value at Risk combines value with predicted churn probability."
+    )
+
+    # ---------------------------------------------------------
+    # TOP-LEVEL ECONOMIC KPIs
+    # ---------------------------------------------------------
+    total_customer_value = economic["customer_value"].sum()
+    total_retention_cost = economic["retention_cost"].sum()
+    total_evar = economic["expected_value_at_risk"].sum()
+    total_net_evar = economic["net_value_at_risk"].sum()
+
+    k1, k2, k3, k4 = st.columns(4, gap="medium")
+
+    with k1:
+        render_kpi_card(
+            "CUSTOMER VALUE",
+            f"₹{total_customer_value:,.0f}",
+            "Historical value across analyzed customers",
+            COLOR_PRIMARY,
+        )
+
+    with k2:
+        render_kpi_card(
+            "RETENTION COST",
+            f"₹{total_retention_cost:,.0f}",
+            "Observed historical campaign cost",
+            COLOR_SECONDARY,
+        )
+
+    with k3:
+        render_kpi_card(
+            "EXPECTED VALUE AT RISK",
+            f"₹{total_evar:,.0f}",
+            "Churn probability × customer value",
+            COLOR_ALERT,
+        )
+
+    with k4:
+        render_kpi_card(
+            "NET VALUE AT RISK",
+            f"₹{total_net_evar:,.0f}",
+            "Expected value at risk minus retention cost",
+            COLOR_TERTIARY,
+        )
+
+    # ---------------------------------------------------------
+    # CUSTOMER ECONOMICS
+    # ---------------------------------------------------------
+    st.markdown("<div style='height: 24px;'></div>", unsafe_allow_html=True)
+    st.subheader("Customer Economics")
+    st.caption(
+        "Compare customer value with churn probability to identify customers "
+        "where high value and high churn risk intersect."
+    )
+
+    avg_customer_value = economic["customer_value"].mean()
+    avg_retention_cost = economic["retention_cost"].mean()
+    avg_evar = economic["expected_value_at_risk"].mean()
+    customers_with_cost = int((economic["retention_cost"] > 0).sum())
+
+    a1, a2, a3, a4 = st.columns(4, gap="medium")
+
+    with a1:
+        render_kpi_card(
+            "CUSTOMERS ANALYZED",
+            f"{len(economic):,}",
+            "Current customer profiles",
+            COLOR_PRIMARY,
+        )
+
+    with a2:
+        render_kpi_card(
+            "AVG. CUSTOMER VALUE",
+            f"₹{avg_customer_value:,.0f}",
+            "Historical value per customer",
+            COLOR_PRIMARY,
+        )
+
+    with a3:
+        render_kpi_card(
+            "AVG. RETENTION COST",
+            f"₹{avg_retention_cost:,.0f}",
+            "Historical campaign cost per customer",
+            COLOR_SECONDARY,
+        )
+
+    with a4:
+        render_kpi_card(
+            "AVG. EVAR",
+            f"₹{avg_evar:,.0f}",
+            f"{customers_with_cost:,} customers have observed campaign cost",
+            COLOR_ALERT,
+        )
+
+    # ---------------------------------------------------------
+    # EXPOSURE RANKING
+    # ---------------------------------------------------------
+    st.markdown("<div style='height: 22px;'></div>", unsafe_allow_html=True)
+
+    exposure = economic.nlargest(15, "net_value_at_risk").copy()
+    exposure["customer_id"] = exposure["customer_id"].astype(str)
+
+    fig = px.bar(
+        exposure.sort_values("net_value_at_risk", ascending=True),
+        x="net_value_at_risk",
+        y="customer_id",
+        orientation="h",
+        text="net_value_at_risk",
+        color_discrete_sequence=[COLOR_PRIMARY],
+    )
+    fig = apply_chart_style(fig)
+    fig.update_layout(
+        xaxis_title="Net Value at Risk (₹)",
+        yaxis_title=None,
+        showlegend=False,
+        height=520,
+    )
+    fig.update_traces(
+        texttemplate="₹%{text:,.0f}",
+        textposition="outside",
+        marker_line_width=0,
+        textfont_color=COLOR_TEXT,
+    )
+    st.plotly_chart(fig, width="stretch")
+
+    # ---------------------------------------------------------
+    # VALUE VS CHURN RISK
+    # ---------------------------------------------------------
+    st.divider()
+    st.subheader("Customer Value vs. Churn Probability")
+    st.caption(
+        "Bubble size represents Expected Value at Risk. This is an exposure view, "
+        "not a forecast of guaranteed revenue loss."
+    )
+
+    scatter_data = economic.copy()
+    scatter_data["economic_priority_band"] = pd.cut(
+        scatter_data["expected_value_at_risk"],
+        bins=[-float("inf"), scatter_data["expected_value_at_risk"].quantile(.5),
+              scatter_data["expected_value_at_risk"].quantile(.75),
+              float("inf")],
+        labels=["Lower", "Elevated", "Highest"],
+        duplicates="drop",
+    )
+
+    fig = px.scatter(
+        scatter_data,
+        x="customer_value",
+        y="churn_probability",
+        size="expected_value_at_risk",
+        color="economic_priority_band",
+        hover_data=[
+            "customer_id",
+            "retention_cost",
+            "expected_value_at_risk",
+            "net_value_at_risk",
+        ],
+        color_discrete_sequence=CHART_PALETTE,
+    )
+    fig = apply_chart_style(fig)
+    fig.update_layout(
+        xaxis_title="Historical Customer Value (₹)",
+        yaxis_title="Churn Probability",
+        yaxis_tickformat=".0%",
+        height=500,
+        legend_title="Economic Exposure",
+    )
+    st.plotly_chart(fig, width="stretch")
+
+    # ---------------------------------------------------------
+    # RETENTION COST BY CAMPAIGN TYPE
+    # ---------------------------------------------------------
+    st.divider()
+    st.subheader("Historical Retention Cost by Campaign Type")
+    st.caption(
+        "Observed campaign costs by type. These costs are a historical proxy and "
+        "should not be interpreted as the cost of a future intervention."
+    )
+
+    retention_cost_for_display = calculate_retention_cost(campaigns).copy()
+    campaign_cost_by_type = (
+        retention_cost_for_display.groupby("campaign_type", as_index=False)["retention_cost"]
+        .sum()
+        .sort_values("retention_cost", ascending=True)
+    )
+
+    if campaign_cost_by_type.empty:
+        st.info("No campaign cost data is available.")
+    else:
+        fig = px.bar(
+            campaign_cost_by_type,
+            x="retention_cost",
+            y="campaign_type",
+            orientation="h",
+            text="retention_cost",
+            color_discrete_sequence=[COLOR_SECONDARY],
+        )
+        fig = apply_chart_style(fig)
+        fig.update_layout(
+            xaxis_title="Historical Retention Cost (₹)",
+            yaxis_title=None,
+            showlegend=False,
+            height=380,
+        )
+        fig.update_traces(
+            texttemplate="₹%{text:,.0f}",
+            textposition="outside",
+            marker_line_width=0,
+            textfont_color=COLOR_TEXT,
+        )
+        st.plotly_chart(fig, width="stretch")
+
+    # ---------------------------------------------------------
+    # CUSTOMER ECONOMIC PROFILE
+    # ---------------------------------------------------------
+    st.divider()
+    st.subheader("Top Customer Economic Exposure")
+    st.caption(
+        "Customers ranked by Net Value at Risk. Higher values indicate greater "
+        "relative economic exposure after observed retention cost."
+    )
+
+    table = economic.nlargest(20, "net_value_at_risk")[
+        [
+            "customer_id",
+            "customer_value",
+            "churn_probability",
+            "retention_cost",
+            "expected_value_at_risk",
+            "net_value_at_risk",
+        ]
+    ].copy()
+
+    table["customer_value"] = table["customer_value"].map(lambda x: f"₹{x:,.0f}")
+    table["churn_probability"] = table["churn_probability"].map(
+        lambda x: f"{x:.1%}"
+    )
+    table["retention_cost"] = table["retention_cost"].map(lambda x: f"₹{x:,.0f}")
+    table["expected_value_at_risk"] = table["expected_value_at_risk"].map(
+        lambda x: f"₹{x:,.0f}"
+    )
+    table["net_value_at_risk"] = table["net_value_at_risk"].map(
+        lambda x: f"₹{x:,.0f}"
+    )
+
+    table.columns = [
+        "Customer ID",
+        "Customer Value",
+        "Churn Probability",
+        "Retention Cost",
+        "Expected Value at Risk",
+        "Net Value at Risk",
+    ]
+
+    render_themed_table(table)
+
+    st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
+    st.info(
+        "Interpretation: Expected Value at Risk is a probability-weighted economic "
+        "exposure, not guaranteed revenue loss, revenue saved, ROI, or a causal "
+        "estimate of campaign impact. Historical campaign cost is used here as a "
+        "cost proxy."
+    )
+
 # =========================================================
 # MAIN APPLICATION
 # =========================================================
@@ -2143,6 +2537,28 @@ def render_sidebar():
         ):
             _set_page(page_name)
 
+    st.sidebar.markdown(
+        '<div class="sidebar-divider"></div>',
+        unsafe_allow_html=True,
+    )
+
+    # ---------------------------------------------------------
+    # RETENTION
+    # ---------------------------------------------------------
+    st.sidebar.markdown(
+        '<div class="sidebar-section-label">RETENTION</div>',
+        unsafe_allow_html=True,
+    )
+
+    if st.sidebar.button(
+        "◉  Economic Intelligence",
+        width="stretch",
+        type="primary" if current_page == "Economic Intelligence" else "secondary",
+        key="sidebar_economic_intelligence",
+    ):
+        _set_page("Economic Intelligence")
+
+
 def main():
 
     initialize_dataset_state()
@@ -2188,6 +2604,26 @@ def main():
             campaigns,
             customer_analytics,
             data_mode,
+        )
+
+    # =====================================================
+    # ECONOMIC INTELLIGENCE
+    # =====================================================
+
+    elif page == "Economic Intelligence":
+
+        with st.spinner("Preparing customer intelligence..."):
+            customer_analytics = load_active_customer_analytics(
+                customers,
+                transactions,
+                campaigns,
+                data_mode,
+            )
+
+        render_economic_intelligence(
+            customer_analytics,
+            transactions,
+            campaigns,
         )
 
     # =====================================================
