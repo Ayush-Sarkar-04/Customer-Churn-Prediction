@@ -2,6 +2,19 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
+from config import (
+    COLOR_BACKGROUND,
+    COLOR_BORDER,
+    COLOR_PRIMARY,
+    COLOR_SURFACE,
+    COLOR_SURFACE_ALT,
+    COLOR_TEXT,
+    COLOR_TEXT_DARK,
+    COLOR_TEXT_MUTED,
+    CHART_PALETTE,
+)
+
+
 from src.analytics.campaign_affinity import (
     calculate_campaign_affinity,
     calculate_campaign_type_affinity,
@@ -44,7 +57,7 @@ def _format_percent(value):
 
 def _style_affinity_chart(fig):
     """
-    Apply the common styling used by campaign affinity charts.
+    Apply the common config-driven styling used by campaign affinity charts.
     """
     fig.update_layout(
         height=390,
@@ -54,9 +67,37 @@ def _style_affinity_chart(fig):
             t=45,
             b=20,
         ),
+        paper_bgcolor=COLOR_BACKGROUND,
+        plot_bgcolor=COLOR_BACKGROUND,
+        font=dict(
+            color=COLOR_TEXT,
+        ),
+        title_font=dict(
+            color=COLOR_TEXT,
+        ),
         xaxis_title=None,
         yaxis_title=None,
         legend_title=None,
+        xaxis=dict(
+            color=COLOR_TEXT_MUTED,
+            gridcolor=COLOR_BORDER,
+            linecolor=COLOR_BORDER,
+            zerolinecolor=COLOR_BORDER,
+        ),
+        yaxis=dict(
+            color=COLOR_TEXT_MUTED,
+            gridcolor=COLOR_BORDER,
+            linecolor=COLOR_BORDER,
+            zerolinecolor=COLOR_BORDER,
+        ),
+        legend=dict(
+            font=dict(color=COLOR_TEXT_MUTED),
+        ),
+    )
+
+    fig.update_traces(
+        marker_color=COLOR_PRIMARY,
+        textfont_color=COLOR_TEXT,
     )
 
     return fig
@@ -196,11 +237,17 @@ def render_campaign_type_affinity(affinity_df):
             "click_rate"
         ].map(_format_percent)
 
-    st.dataframe(
-        display_df,
-        width="stretch",
-        hide_index=True,
-    )
+    st.markdown(
+            '<div class="app-table-wrap">'
+            + display_df.to_html(
+                index=False,
+                classes="app-table",
+                border=0,
+                escape=True,
+            )
+            + '</div>',
+            unsafe_allow_html=True,
+        )
 
     chart_df = campaign_type_df.copy()
 
@@ -214,6 +261,7 @@ def render_campaign_type_affinity(affinity_df):
         y="chart_click_rate",
         text="chart_click_rate",
         title="Click Rate by Campaign Type",
+        color_discrete_sequence=[COLOR_PRIMARY],
     )
 
     fig.update_traces(
@@ -327,11 +375,17 @@ def render_customer_search(affinity_df):
             "click_rate"
         ].map(_format_percent)
 
-    st.dataframe(
-        display_df,
-        width="stretch",
-        hide_index=True,
-    )
+    st.markdown(
+            '<div class="app-table-wrap">'
+            + display_df.to_html(
+                index=False,
+                classes="app-table",
+                border=0,
+                escape=True,
+            )
+            + '</div>',
+            unsafe_allow_html=True,
+        )
 
     chart_df = customer_affinity.copy()
 
@@ -345,6 +399,7 @@ def render_customer_search(affinity_df):
         y="chart_click_rate",
         text="chart_click_rate",
         title=f"Campaign Affinity — {selected_customer}",
+        color_discrete_sequence=[COLOR_PRIMARY],
     )
 
     fig.update_traces(

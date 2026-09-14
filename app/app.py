@@ -5,6 +5,7 @@ import streamlit as st
 from config import (
     COLOR_BACKGROUND,
     COLOR_SURFACE,
+    COLOR_SURFACE_LIGHT,
     COLOR_SURFACE_ALT,
     COLOR_TEXT,
     COLOR_TEXT_MUTED,
@@ -17,6 +18,9 @@ from config import (
     COLOR_ALERT,
     COLOR_NEUTRAL,
     COLOR_WHITE,
+    COLOR_CARD,
+    COLOR_CARD_TEXT,
+    COLOR_CARD_MUTED,
     CHART_PALETTE,
     RISK_COLORS,
     RETENTION_PRIORITY_COLORS,
@@ -115,227 +119,388 @@ st.set_page_config(
     layout="wide",
 )
 
-# Keep the entire application visually grayscale, including Streamlit
-# navigation controls and the selected sidebar state.
-st.markdown(
-    """
-    <style>
-        :root {
-            --bg: #0E1117;
-            --surface: #161A1F;
-            --surface-alt: #1E2329;
-            --border: #30343A;
-            --text: #E8E8E8;
-            --muted: #92979D;
-            --blue: #71879C;
-            --red: #986B70;
-        }
+# Apply the global UI theme from config.py.
+# Theme changes should be made in config.py only.
+THEME_CSS = """
+<style>
+    :root {
+        --bg: __COLOR_BACKGROUND__;
+        --surface: __COLOR_SURFACE__;
+        --surface-light: __COLOR_SURFACE_LIGHT__;
+        --surface-alt: __COLOR_SURFACE_ALT__;
+        --border: __COLOR_BORDER__;
+        --grid: __COLOR_GRID__;
+        --text: __COLOR_TEXT__;
+        --text-muted: __COLOR_TEXT_MUTED__;
+        --text-dark: __COLOR_TEXT_DARK__;
+        --primary: __COLOR_PRIMARY__;
+        --secondary: __COLOR_SECONDARY__;
+        --alert: __COLOR_ALERT__;
+        --card: __COLOR_CARD__;
+        --card-text: __COLOR_CARD_TEXT__;
+        --card-muted: __COLOR_CARD_MUTED__;
+    }
 
-        [data-testid="stAppViewContainer"],
-        [data-testid="stMain"] {
-            background: var(--bg);
-        }
+    /* =====================================================
+       GLOBAL
+       ===================================================== */
 
-        [data-testid="stHeader"] {
-            background: #0E1117;
-        }
+    [data-testid="stAppViewContainer"],
+    [data-testid="stMain"] {
+        background: var(--bg);
+    }
 
-        /* =====================================================
-           SIDEBAR
-           ===================================================== */
+    [data-testid="stHeader"] {
+        background: var(--bg);
+    }
 
-        [data-testid="stSidebar"] {
-            background: #0E1117;
-            border-right: 1px solid var(--border);
-        }
+    h1, h2, h3, h4, h5, h6,
+    [data-testid="stMarkdownContainer"] p,
+    label {
+        color: var(--text);
+    }
 
-        [data-testid="stSidebar"] > div:first-child {
-            padding-top: 1.05rem;
-        }
+    /* =====================================================
+       SIDEBAR — COMPACT, NO UNNECESSARY SCROLLING
+       ===================================================== */
 
-        [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p {
-            color: var(--muted);
-        }
+    [data-testid="stSidebar"] {
+        background: var(--bg);
+        border-right: 1px solid var(--border);
+    }
 
-        .sidebar-section-label {
-            color: var(--muted);
-            font-size: 9px;
-            font-weight: 700;
-            letter-spacing: .13em;
-            text-transform: uppercase;
-            margin: 8px 0 9px 1px;
-        }
+    [data-testid="stSidebar"] > div:first-child {
+        padding-top: 0.75rem;
+        padding-bottom: 0.55rem;
+    }
 
-        .sidebar-divider {
-            height: 1px;
-            background: var(--border);
-            margin: 11px 0;
-        }
+    [data-testid="stSidebar"] .stButton {
+        margin: 0 0 5px 0;
+    }
 
-        /* Approved render: full-size buttons, compact gaps */
-        [data-testid="stSidebar"] .stButton {
-            margin: 0 0 4px 0;
-        }
+    [data-testid="stSidebar"] .stButton > button {
+        min-height: 39px !important;
+        height: 39px !important;
+        padding: 0.35rem 0.65rem !important;
+        justify-content: center !important;
+        text-align: center !important;
+        background: var(--surface-alt) !important;
+        color: var(--text) !important;
+        border: 1px solid var(--border) !important;
+        border-radius: 6px !important;
+        font-size: 11px !important;
+        font-weight: 600 !important;
+        box-shadow: none !important;
+    }
 
-        [data-testid="stSidebar"] .stButton > button {
-            min-height: 44px !important;
-            height: 44px !important;
-            padding: 0.55rem 0.85rem !important;
-            justify-content: center !important;
-            text-align: center !important;
-            background: var(--surface) !important;
-            color: var(--text) !important;
-            border: 1px solid var(--border) !important;
-            border-radius: 7px !important;
-            font-size: 12px !important;
-            font-weight: 500 !important;
-            letter-spacing: .005em !important;
-            box-shadow: none !important;
-        }
+    [data-testid="stSidebar"] .stButton > button:hover {
+        background: var(--surface) !important;
+        border-color: var(--primary) !important;
+        color: var(--text-dark) !important;
+    }
 
-        [data-testid="stSidebar"] .stButton > button:hover {
-            background: var(--surface-alt) !important;
-            border-color: #30343A !important;
-            color: var(--text) !important;
-        }
+    [data-testid="stSidebar"] button[data-testid="baseButton-primary"] {
+        background: var(--primary) !important;
+        border-color: var(--primary) !important;
+        color: var(--text) !important;
+    }
 
-        [data-testid="stSidebar"] .stButton > button[kind="primary"],
-        [data-testid="stSidebar"] button[data-testid="baseButton-primary"] {
-            background: #1E2329 !important;
-            border-color: var(--blue) !important;
-            color: #E8E8E8 !important;
-        }
+    .sidebar-brand {
+        color: var(--text) !important;
+        font-size: 24px;
+        font-weight: 800;
+        line-height: 0.96;
+        letter-spacing: -0.045em;
+    }
 
-        /* Home button */
-        .sidebar-home .stButton {
-            margin-bottom: 0 !important;
-        }
+    .sidebar-tagline {
+        color: var(--text-muted) !important;
+        font-size: 9px;
+        font-weight: 700;
+        margin-top: 8px;
+        letter-spacing: .10em;
+    }
 
-        .sidebar-home .stButton > button {
-            min-height: 46px !important;
-            height: 46px !important;
-            font-size: 12px !important;
-            font-weight: 500 !important;
-            background: #1E2329 !important;
-            border-color: var(--blue) !important;
-        }
+    .sidebar-dataset-button .stButton > button {
+        min-height: 34px !important;
+        height: 34px !important;
+        font-size: 9px !important;
+        letter-spacing: .07em !important;
+        text-transform: uppercase !important;
+        justify-content: flex-start !important;
+        padding-left: 12px !important;
+        background: var(--surface-alt) !important;
+        border-color: var(--border) !important;
+    }
 
-        /* Slim current-dataset indicator */
-        .sidebar-dataset {
-            height: 31px;
-            box-sizing: border-box;
-            display: flex;
-            align-items: center;
-            padding: 0 10px;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            background: var(--surface);
-            color: var(--muted);
-            font-size: 9px;
-            font-weight: 700;
-            letter-spacing: .06em;
-            margin: 0 0 12px 0;
-        }
+    .sidebar-section-label {
+        color: var(--text-muted);
+        font-size: 8px;
+        font-weight: 800;
+        letter-spacing: .15em;
+        text-transform: uppercase;
+        margin: 7px 0 5px 1px;
+    }
 
-        .sidebar-dataset-dot {
-            width: 7px;
-            height: 7px;
-            border-radius: 50%;
-            background: var(--blue);
-            margin-right: 8px;
-            flex: 0 0 auto;
-        }
+    .sidebar-divider {
+        height: 1px;
+        background: var(--border);
+        margin: 7px 0;
+    }
 
-        /* =====================================================
-           CONTENT
-           ===================================================== */
+    /* =====================================================
+       CONTENT
+       ===================================================== */
 
-        [data-testid="stVerticalBlockBorderWrapper"] {
-            background: var(--surface);
-            border-color: var(--border) !important;
-            border-radius: 8px;
-        }
+    [data-testid="stVerticalBlockBorderWrapper"] {
+        background: var(--card) !important;
+        border-color: var(--border) !important;
+        border-radius: 8px;
+    }
 
-        div[data-baseweb="input"] > div,
-        div[data-baseweb="select"] > div,
-        textarea {
-            background: var(--surface) !important;
-            border-color: var(--border) !important;
-            color: var(--text) !important;
-        }
+    /* Bordered cards use the cream theme surface for visual variation. */
+    [data-testid="stVerticalBlockBorderWrapper"]
+    [data-testid="stMarkdownContainer"] p,
+    [data-testid="stVerticalBlockBorderWrapper"]
+    [data-testid="stMetricValue"],
+    [data-testid="stVerticalBlockBorderWrapper"]
+    [data-testid="stMetricLabel"],
+    [data-testid="stVerticalBlockBorderWrapper"] label {
+        color: var(--card-text) !important;
+    }
 
-        input, textarea {
-            color: var(--text) !important;
-        }
+    [data-testid="stVerticalBlockBorderWrapper"]
+    .stCaption,
+    [data-testid="stVerticalBlockBorderWrapper"]
+    [data-testid="stCaptionContainer"] {
+        color: var(--card-muted) !important;
+    }
 
-        .stButton > button,
-        .stDownloadButton > button {
-            background: var(--surface-alt) !important;
-            color: var(--text) !important;
-            border: 1px solid var(--border) !important;
-            border-radius: 6px !important;
-            font-weight: 600;
-        }
+    div[data-baseweb="input"] > div,
+    div[data-baseweb="select"] > div,
+    textarea {
+        background: var(--surface-alt) !important;
+        border-color: var(--border) !important;
+        color: var(--text) !important;
+    }
 
-        .stButton > button:hover,
-        .stDownloadButton > button:hover {
-            border-color: var(--blue) !important;
-            color: #E8E8E8 !important;
-        }
+    input, textarea {
+        color: var(--text) !important;
+    }
 
-        .stButton > button[kind="primary"],
-        button[data-testid="baseButton-primary"] {
-            background: var(--blue) !important;
-            color: #0E1117 !important;
-            border-color: var(--blue) !important;
-        }
+    .stButton > button,
+    .stDownloadButton > button {
+        background: var(--surface-alt) !important;
+        color: var(--text) !important;
+        border: 1px solid var(--border) !important;
+        border-radius: 6px !important;
+        font-weight: 600;
+    }
 
-        [data-testid="stAlert"] {
-            background: var(--surface) !important;
-            border: 1px solid var(--border) !important;
-            color: var(--text) !important;
-        }
+    .stButton > button:hover,
+    .stDownloadButton > button:hover {
+        background: var(--surface) !important;
+        border-color: var(--primary) !important;
+        color: var(--text-dark) !important;
+    }
 
-        [data-testid="stMetricValue"] {
-            color: var(--text) !important;
-            font-weight: 700;
-        }
+    .stButton > button[kind="primary"],
+    button[data-testid="baseButton-primary"] {
+        background: var(--primary) !important;
+        color: var(--text) !important;
+        border-color: var(--primary) !important;
+    }
 
-        [data-testid="stMetricLabel"],
-        .stCaption,
-        [data-testid="stCaptionContainer"] {
-            color: var(--muted) !important;
-        }
+    [data-testid="stAlert"] {
+        background: var(--surface-alt) !important;
+        border: 1px solid var(--border) !important;
+        color: var(--text) !important;
+    }
 
-        [data-testid="stDataFrame"] {
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            overflow: hidden;
-        }
+    [data-testid="stMetricValue"] {
+        color: var(--text) !important;
+        font-weight: 700;
+    }
 
-        button[data-baseweb="tab"] {
-            color: var(--muted) !important;
-        }
+    [data-testid="stMetricLabel"],
+    .stCaption,
+    [data-testid="stCaptionContainer"] {
+        color: var(--text-muted) !important;
+    }
 
-        button[data-baseweb="tab"][aria-selected="true"] {
-            color: var(--text) !important;
-            border-bottom-color: var(--blue) !important;
-        }
+    /* Keep native dataframe containers visually connected to the page. */
+    [data-testid="stDataFrame"] {
+        background: var(--surface-alt) !important;
+        border: 1px solid var(--border) !important;
+        border-radius: 8px !important;
+        overflow: hidden !important;
+        padding: 0 !important;
+    }
 
-        [data-testid="stFileUploader"] section {
-            background: var(--surface) !important;
-            border: 1px dashed var(--border) !important;
-            border-radius: 8px;
-        }
+    /* -----------------------------------------------------
+       HTML TABLES
+       Used by Data Quality and Campaign Affinity so the
+       complete table surface follows the application theme.
+       ----------------------------------------------------- */
+    .app-table-wrap {
+        width: 100%;
+        margin: 0;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        overflow: hidden;
+        background: var(--surface-alt);
+    }
 
-        hr {
-            border-color: var(--border) !important;
-        }
-    </style>
-    """,
-    unsafe_allow_html=True,
+    .app-table {
+        width: 100%;
+        border-collapse: collapse;
+        border-spacing: 0;
+        background: var(--surface-alt);
+        color: var(--text);
+        font-size: 12px;
+        line-height: 1.35;
+    }
+
+    .app-table thead th {
+        background: var(--card);
+        color: var(--card-text);
+        font-weight: 700;
+        text-align: left;
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--border);
+        white-space: nowrap;
+    }
+
+    .app-table tbody td {
+        background: var(--surface-alt);
+        color: var(--text);
+        padding: 9px 12px;
+        border-bottom: 1px solid var(--grid);
+        vertical-align: middle;
+    }
+
+    .app-table tbody tr:last-child td {
+        border-bottom: 0;
+        background: var(--surface-alt);
+    }
+
+    .app-table tbody tr:nth-child(even) td {
+        background: var(--surface);
+    }
+
+    .app-table tbody tr:hover td {
+        background: var(--surface-light);
+    }
+
+    .app-table tbody td:first-child {
+        font-weight: 600;
+    }
+
+    /* Sidebar dataset control is an indicator/shortcut, not a
+       primary action. Keep it on the normal surface even when
+       the Data & Upload page is active. */
+    .sidebar-dataset-button button[data-testid="baseButton-primary"],
+    .sidebar-dataset-button button[kind="primary"] {
+        background: var(--surface-alt) !important;
+        color: var(--text) !important;
+        border-color: var(--border) !important;
+    }
+
+    .sidebar-dataset-button button[data-testid="baseButton-primary"]:hover,
+    .sidebar-dataset-button button[kind="primary"]:hover {
+        background: var(--surface) !important;
+        border-color: var(--primary) !important;
+        color: var(--text) !important;
+    }
+
+    button[data-baseweb="tab"] {
+        color: var(--text-muted) !important;
+    }
+
+    button[data-baseweb="tab"][aria-selected="true"] {
+        color: var(--text) !important;
+        border-bottom-color: var(--primary) !important;
+    }
+
+    [data-testid="stFileUploader"] section {
+        background: var(--card) !important;
+        border: 1px dashed var(--border) !important;
+        border-radius: 8px;
+    }
+
+    [data-testid="stFileUploader"] section,
+    [data-testid="stFileUploader"] section * {
+        color: var(--card-text) !important;
+    }
+
+    [data-testid="stFileUploader"] small,
+    [data-testid="stFileUploader"] [data-testid="stFileUploaderDropzoneInstructions"] span {
+        color: var(--card-muted) !important;
+    }
+
+    /* File uploader action button — keep it inside the application theme. */
+    [data-testid="stFileUploader"] button {
+        background: var(--surface) !important;
+        color: var(--text) !important;
+        border: 1px solid var(--border) !important;
+        border-radius: 6px !important;
+        box-shadow: none !important;
+        font-weight: 600 !important;
+    }
+
+    [data-testid="stFileUploader"] button:hover {
+        background: var(--surface-light) !important;
+        color: var(--text) !important;
+        border-color: var(--primary) !important;
+    }
+
+    /* Sidebar dataset indicator — compact, centered and not a full-size nav button. */
+    [data-testid="stSidebar"] div[class*="st-key-sidebar_dataset_control"] .stButton > button {
+        width: 145px !important;
+        min-width: 145px !important;
+        max-width: 145px !important;
+        min-height: 29px !important;
+        height: 29px !important;
+        padding: 0.15rem 0.55rem !important;
+        margin: 0 auto !important;
+        justify-content: center !important;
+        text-align: center !important;
+        font-size: 9px !important;
+        letter-spacing: .06em !important;
+    }
+
+    hr {
+        border-color: var(--border) !important;
+    }
+
+    /* Radio controls */
+    [data-baseweb="radio"] [role="radio"][aria-checked="true"] {
+        border-color: var(--primary) !important;
+        background: var(--primary) !important;
+    }
+</style>
+"""
+
+THEME_CSS = (
+    THEME_CSS
+    .replace("__COLOR_BACKGROUND__", COLOR_BACKGROUND)
+    .replace("__COLOR_SURFACE__", COLOR_SURFACE)
+    .replace("__COLOR_SURFACE_LIGHT__", COLOR_SURFACE_LIGHT)
+    .replace("__COLOR_SURFACE_ALT__", COLOR_SURFACE_ALT)
+    .replace("__COLOR_BORDER__", COLOR_BORDER)
+    .replace("__COLOR_GRID__", COLOR_GRID)
+    .replace("__COLOR_TEXT__", COLOR_TEXT)
+    .replace("__COLOR_TEXT_MUTED__", COLOR_TEXT_MUTED)
+    .replace("__COLOR_TEXT_DARK__", COLOR_TEXT_DARK)
+    .replace("__COLOR_PRIMARY__", COLOR_PRIMARY)
+    .replace("__COLOR_SECONDARY__", COLOR_SECONDARY)
+    .replace("__COLOR_ALERT__", COLOR_ALERT)
+    .replace("__COLOR_CARD__", COLOR_CARD)
+    .replace("__COLOR_CARD_TEXT__", COLOR_CARD_TEXT)
+    .replace("__COLOR_CARD_MUTED__", COLOR_CARD_MUTED)
 )
 
+st.markdown(THEME_CSS, unsafe_allow_html=True)
 
 
 # =========================================================
@@ -706,6 +871,29 @@ def render_page_header(title, description):
 
 
 # =========================================================
+# THEMED TABLE HELPER
+# =========================================================
+
+def render_themed_table(dataframe):
+    """Render a dataframe as a theme-controlled HTML table."""
+    if dataframe is None or dataframe.empty:
+        st.info("No data available.")
+        return
+
+    st.markdown(
+        '<div class="app-table-wrap">'
+        + dataframe.to_html(
+            index=False,
+            classes="app-table",
+            border=0,
+            escape=True,
+        )
+        + '</div>',
+        unsafe_allow_html=True,
+    )
+
+
+# =========================================================
 # EXECUTIVE OVERVIEW
 # =========================================================
 
@@ -868,9 +1056,6 @@ def render_customer_segmentation(customer_analytics, customers, data_mode):
         "Understand customer segments, churn exposure, retention priority and the model's strongest signals.",
     )
 
-    st.caption(
-        f"Data source: {data_mode}."
-    )
     st.caption(
         f"Analysis uses the latest available observation for each customer profile ({len(customer_data):,} current profiles)."
     )
@@ -1072,8 +1257,6 @@ def render_retention_model_insights(customer_analytics, customers, data_mode):
         "Prioritize customers for retention and understand the strongest signals used by the churn model.",
     )
 
-    st.caption(f"Data source: {data_mode}.")
-
     # =====================================================
     # CHURN DRIVERS — FULL WIDTH
     # =====================================================
@@ -1126,11 +1309,7 @@ def render_retention_model_insights(customer_analytics, customers, data_mode):
             lambda x: f"{x:.2%}"
         )
         feature_table.columns = ["Rank", "Feature", "Importance"]
-        st.dataframe(
-            feature_table,
-            width="stretch",
-            hide_index=True,
-        )
+        render_themed_table(feature_table)
 
     # =====================================================
     # RETENTION PRIORITY — FULL WIDTH
@@ -1474,13 +1653,17 @@ def render_campaign_performance(campaigns):
         )
     )
 
-    with st.container(border=True):
-        st.dataframe(
-            styled_campaign_data,
-            width="stretch",
-            hide_index=True,
-            height=275,
+    st.markdown(
+        '<div class="app-table-wrap">'
+        + display_campaign_data.to_html(
+            index=False,
+            classes="app-table",
+            border=0,
+            escape=True,
         )
+        + '</div>',
+        unsafe_allow_html=True,
+    )
 
 
 # =========================================================
@@ -1695,12 +1878,7 @@ def render_campaign_affinity(campaigns):
                     "Click Rate",
                 ]
 
-                with st.container(border=True):
-                    st.dataframe(
-                        display_affinity,
-                        width="stretch",
-                        hide_index=True,
-                    )
+                render_themed_table(display_affinity)
 
     # -----------------------------------------------------
     # Campaign-type affinity benchmark
@@ -1730,7 +1908,7 @@ def render_campaign_affinity(campaigns):
         y="campaign_type",
         orientation="h",
         text="click_rate",
-        color_discrete_sequence=[COLOR_SECONDARY],
+        color_discrete_sequence=[COLOR_PRIMARY],
     )
 
     fig = apply_chart_style(fig)
@@ -1770,12 +1948,7 @@ def render_campaign_affinity(campaigns):
         for column in display_type_affinity.columns
     ]
 
-    with st.container(border=True):
-        st.dataframe(
-            display_type_affinity,
-            width="stretch",
-            hide_index=True,
-        )
+    render_themed_table(display_type_affinity)
 
 
 # =========================================================
@@ -1784,38 +1957,49 @@ def render_campaign_affinity(campaigns):
 
 def _set_page(page_name):
     """Set the active application page and rerun the Streamlit app."""
+    # Choosing Custom Data on the Data & Upload page is only a workflow
+    # selection. It must not persist as a visible state when the user leaves
+    # the page unless validated custom data is actually active.
+    if page_name != "Data & Upload":
+        active_dataset = st.session_state.get("active_dataset", "Demo Dataset")
+        custom_data = st.session_state.get("custom_data")
+        custom_is_active = (
+            active_dataset == "Custom Data"
+            and isinstance(custom_data, dict)
+            and all(
+                custom_data.get(key) is not None
+                for key in ("customers", "transactions", "campaigns")
+            )
+        )
+        if not custom_is_active:
+            st.session_state["data_source_mode"] = "Demo Dataset"
+
     st.session_state["current_page"] = page_name
     st.rerun()
 
 
 def render_sidebar():
-    """Render the finalized sidebar matching the approved UI render."""
+    """Render the compact application sidebar."""
 
-    active_dataset = st.session_state.get("active_dataset", "Demo Dataset")
-    current_page = st.session_state.get("current_page", "Home Page")
+    active_dataset = st.session_state.get(
+        "active_dataset",
+        "Demo Dataset",
+    )
+    current_page = st.session_state.get(
+        "current_page",
+        "Home Page",
+    )
 
     # ---------------------------------------------------------
     # BRAND
     # ---------------------------------------------------------
 
     st.sidebar.markdown(
-        f"""
-        <div style="
-            font-size:26px;
-            font-weight:800;
-            line-height:0.98;
-            letter-spacing:-0.045em;
-            color:{COLOR_WHITE};
-        ">
+        """
+        <div class="sidebar-brand">
             Customer<br>Intelligence
         </div>
-        <div style="
-            font-size:10px;
-            font-weight:600;
-            color:{COLOR_TEXT_MUTED};
-            margin-top:10px;
-            letter-spacing:.105em;
-        ">
+        <div class="sidebar-tagline">
             CHURN &amp; CAMPAIGN ANALYTICS
         </div>
         """,
@@ -1823,47 +2007,54 @@ def render_sidebar():
     )
 
     # ---------------------------------------------------------
-    # CURRENT DATASET — FIRST CONTROL UNDER THE BRAND
+    # DYNAMIC DATASET CONTROL
     # ---------------------------------------------------------
+    # This is both the active-dataset indicator and the shortcut
+    # to the Data & Upload page.
 
-    dataset_tone = COLOR_PRIMARY if active_dataset == "Custom Data" else COLOR_TERTIARY
-
-    st.sidebar.markdown(
-        f"""
-        <div class="sidebar-dataset" style="margin-top:22px;">
-            <span class="sidebar-dataset-dot"
-                  style="background:{dataset_tone};"></span>
-            {active_dataset.upper()}
-        </div>
-        """,
-        unsafe_allow_html=True,
+    dataset_label = (
+        "●  CUSTOM DATA"
+        if active_dataset == "Custom Data"
+        else "●  DEMO DATASET"
     )
 
-    # Dataset → Home divider
     st.sidebar.markdown(
-        '<div class="sidebar-divider" style="margin-top:10px;margin-bottom:12px;"></div>',
+        '<div class="sidebar-dataset-button">',
         unsafe_allow_html=True,
     )
-
-    # ---------------------------------------------------------
-    # HOME PAGE
-    # ---------------------------------------------------------
-
-    st.sidebar.markdown('<div class="sidebar-home">', unsafe_allow_html=True)
 
     if st.sidebar.button(
-        "⌂ Home Page",
+        dataset_label,
+        width="content",
+        type="primary" if current_page == "Data & Upload" else "secondary",
+        key="sidebar_dataset_control",
+    ):
+        _set_page("Data & Upload")
+
+    st.sidebar.markdown(
+        "</div>",
+        unsafe_allow_html=True,
+    )
+
+    st.sidebar.markdown(
+        '<div class="sidebar-divider"></div>',
+        unsafe_allow_html=True,
+    )
+
+    # ---------------------------------------------------------
+    # HOME
+    # ---------------------------------------------------------
+
+    if st.sidebar.button(
+        "⌂  Home Page",
         width="stretch",
         type="primary" if current_page == "Home Page" else "secondary",
         key="sidebar_home",
     ):
         _set_page("Home Page")
 
-    st.sidebar.markdown("</div>", unsafe_allow_html=True)
-
-    # Home → Data divider
     st.sidebar.markdown(
-        '<div class="sidebar-divider" style="margin-top:10px;margin-bottom:10px;"></div>',
+        '<div class="sidebar-divider"></div>',
         unsafe_allow_html=True,
     )
 
@@ -1877,24 +2068,15 @@ def render_sidebar():
     )
 
     if st.sidebar.button(
-        "▤ Custom Data",
-        width="stretch",
-        type="primary" if current_page == "Data & Upload" else "secondary",
-        key="sidebar_custom_data",
-    ):
-        _set_page("Data & Upload")
-
-    if st.sidebar.button(
-        "▧ Data Quality",
+        "▧  Data Quality",
         width="stretch",
         type="primary" if current_page == "Data Quality" else "secondary",
         key="sidebar_data_quality",
     ):
         _set_page("Data Quality")
 
-    # Data → Customer divider
     st.sidebar.markdown(
-        '<div class="sidebar-divider" style="margin-top:8px;margin-bottom:9px;"></div>',
+        '<div class="sidebar-divider"></div>',
         unsafe_allow_html=True,
     )
 
@@ -1908,16 +2090,15 @@ def render_sidebar():
     )
 
     if st.sidebar.button(
-        "⌕ Customer Search",
+        "⌕  Customer Search",
         width="stretch",
         type="primary" if current_page == "Customer Search" else "secondary",
         key="sidebar_customer_search",
     ):
         _set_page("Customer Search")
 
-    # Customer → Analytics divider
     st.sidebar.markdown(
-        '<div class="sidebar-divider" style="margin-top:8px;margin-bottom:9px;"></div>',
+        '<div class="sidebar-divider"></div>',
         unsafe_allow_html=True,
     )
 
@@ -1931,10 +2112,26 @@ def render_sidebar():
     )
 
     analytics_pages = [
-        ("▥ Customer Intelligence", "Customer Intelligence", "sidebar_customer_intelligence"),
-        ("⌁ Retention & Model Insights", "Retention & Model Insights", "sidebar_retention"),
-        ("◈ Campaign Performance", "Campaign Performance", "sidebar_campaign_performance"),
-        ("⌘ Campaign Affinity", "Campaign Affinity", "sidebar_campaign_affinity"),
+        (
+            "▥  Customer Intelligence",
+            "Customer Intelligence",
+            "sidebar_customer_intelligence",
+        ),
+        (
+            "⌁  Retention & Model Insights",
+            "Retention & Model Insights",
+            "sidebar_retention",
+        ),
+        (
+            "◈  Campaign Performance",
+            "Campaign Performance",
+            "sidebar_campaign_performance",
+        ),
+        (
+            "⌘  Campaign Affinity",
+            "Campaign Affinity",
+            "sidebar_campaign_affinity",
+        ),
     ]
 
     for label, page_name, key in analytics_pages:
@@ -1945,7 +2142,6 @@ def render_sidebar():
             key=key,
         ):
             _set_page(page_name)
-
 
 def main():
 
@@ -2071,11 +2267,6 @@ def main():
         search_data = prepare_customer_search_data(customer_analytics, customers)
 
         render_customer_search_page(search_data)
-
-
-# =========================================================
 # APPLICATION ENTRY POINT
-# =========================================================
-
 if __name__ == "__main__":
     main()

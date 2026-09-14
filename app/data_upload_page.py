@@ -1,4 +1,18 @@
 import streamlit as st
+from textwrap import dedent
+
+from config import (
+    COLOR_BACKGROUND,
+    COLOR_BORDER,
+    COLOR_PRIMARY,
+    COLOR_SECONDARY,
+    COLOR_SURFACE_ALT,
+    COLOR_TEXT,
+    COLOR_TEXT_MUTED,
+    COLOR_CARD,
+    COLOR_CARD_TEXT,
+    COLOR_CARD_MUTED,
+)
 
 from src.data.templates import (
     template_csv_bytes,
@@ -14,9 +28,7 @@ from src.data.upload import (
 # =========================================================
 
 def initialize_dataset_state():
-    """
-    Initialize the application's dataset state.
-    """
+    """Initialize the application's dataset state."""
     if "active_dataset" not in st.session_state:
         st.session_state.active_dataset = "Demo Dataset"
 
@@ -26,18 +38,31 @@ def initialize_dataset_state():
     if "upload_validation" not in st.session_state:
         st.session_state.upload_validation = None
 
+    if "data_source_mode" not in st.session_state:
+        st.session_state.data_source_mode = "Demo Dataset"
+
+    # Custom Data is active only when validated custom data is actually
+    # present. This prevents a stale session-state marker from claiming
+    # Custom Data while the application is really using the demo dataset.
+    custom_data = st.session_state.get("custom_data")
+    if st.session_state.get("active_dataset") == "Custom Data":
+        if not isinstance(custom_data, dict) or not all(
+            custom_data.get(key) is not None
+            for key in ("customers", "transactions", "campaigns")
+        ):
+            st.session_state.active_dataset = "Demo Dataset"
+
 
 # =========================================================
 # RESET DATASET
 # =========================================================
 
 def reset_to_demo_dataset():
-    """
-    Remove the active custom dataset and return to demo data.
-    """
+    """Remove the active custom dataset and return to demo data."""
     st.session_state.active_dataset = "Demo Dataset"
     st.session_state.custom_data = None
     st.session_state.upload_validation = None
+    st.session_state.data_source_mode = "Demo Dataset"
 
 
 # =========================================================
@@ -45,15 +70,15 @@ def reset_to_demo_dataset():
 # =========================================================
 
 def render_template_downloads():
-    """
-    Render blank CSV template download controls.
-    """
-    st.subheader("CSV Templates")
+    """Render blank CSV template download controls."""
+
+    st.subheader("Download Templates")
     st.caption(
-        "Download the required templates before preparing custom data."
+        "Use the predefined templates to prepare custom datasets "
+        "with the required schemas."
     )
 
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3 = st.columns(3, gap="medium")
 
     templates = [
         ("customers", "Customers", col1),
@@ -63,7 +88,29 @@ def render_template_downloads():
 
     for dataset_name, label, column in templates:
         with column:
-            st.markdown(f"**{label}**")
+            st.markdown(
+                dedent(f"""
+                <div style="
+                    background:{COLOR_CARD};
+                    border:1px solid {COLOR_BORDER};
+                    border-radius:8px;
+                    padding:15px 16px 13px 16px;
+                    margin-bottom:7px;
+                ">
+                    <div style="
+                        color:{COLOR_CARD_TEXT};
+                        font-size:13px;
+                        font-weight:700;
+                    ">{label}</div>
+                    <div style="
+                        color:{COLOR_CARD_MUTED};
+                        font-size:10px;
+                        margin-top:4px;
+                    ">Required CSV structure</div>
+                </div>
+                """),
+                unsafe_allow_html=True,
+            )
 
             st.download_button(
                 label=f"Download {label} Template",
@@ -80,13 +127,10 @@ def render_template_downloads():
 # =========================================================
 
 def render_custom_upload():
-    """
-    Render the three-file custom dataset upload interface.
-    """
-    st.subheader("Upload Custom Dataset")
+    """Render the three-file custom dataset upload interface."""
 
+    st.subheader("Upload Files")
     st.caption(
-        "Upload Customers, Transactions and Campaigns CSV files. "
         "All three files must pass validation before they become active. "
         "Maximum file size: 50 MB per file."
     )
@@ -120,8 +164,6 @@ def render_custom_upload():
         ]
     )
 
-    st.divider()
-
     if st.button(
         "Validate & Load Data",
         width="stretch",
@@ -135,9 +177,7 @@ def render_custom_upload():
         }
 
         with st.spinner("Validating uploaded data..."):
-            result = load_uploaded_datasets(
-                uploaded_files
-            )
+            result = load_uploaded_datasets(uploaded_files)
 
         st.session_state.upload_validation = result
 
@@ -148,10 +188,10 @@ def render_custom_upload():
             st.success(
                 "Custom dataset validated successfully and is now active."
             )
-
         else:
-            # Never replace an existing valid dataset with invalid data.
+            # Failed validation never becomes an active data source.
             st.session_state.custom_data = None
+            st.session_state.active_dataset = "Demo Dataset"
 
             st.error(
                 "Custom dataset was rejected. "
@@ -164,12 +204,9 @@ def render_custom_upload():
 # =========================================================
 
 def render_validation_results():
-    """
-    Display the latest upload validation result.
-    """
-    result = st.session_state.get(
-        "upload_validation"
-    )
+    """Display the latest upload validation result."""
+
+    result = st.session_state.get("upload_validation")
 
     if not result:
         return
@@ -185,22 +222,13 @@ def render_validation_results():
         col1, col2, col3 = st.columns(3)
 
         with col1:
-            st.metric(
-                "Customers",
-                f"{len(data['customers']):,}",
-            )
+            st.metric("Customers", f"{len(data['customers']):,}")
 
         with col2:
-            st.metric(
-                "Transactions",
-                f"{len(data['transactions']):,}",
-            )
+            st.metric("Transactions", f"{len(data['transactions']):,}")
 
         with col3:
-            st.metric(
-                "Campaigns",
-                f"{len(data['campaigns']):,}",
-            )
+            st.metric("Campaigns", f"{len(data['campaigns']):,}")
 
     else:
         st.markdown("**DATASET REJECTED**")
@@ -215,44 +243,54 @@ def render_validation_results():
 # =========================================================
 
 def render_active_dataset():
-    """
-    Display the currently selected dataset state.
-    """
-    st.divider()
-    st.subheader("Active Dataset")
+    """Display the currently selected dataset state."""
 
     active_dataset = st.session_state.get(
         "active_dataset",
         "Demo Dataset",
     )
 
-    if active_dataset == "Custom Data":
-        st.markdown("**CUSTOM DATA**")
+    custom_data = st.session_state.get("custom_data")
 
-        custom_data = st.session_state.get(
-            "custom_data"
+    if active_dataset == "Custom Data" and custom_data:
+        customers = len(custom_data["customers"])
+        transactions = len(custom_data["transactions"])
+        campaigns = len(custom_data["campaigns"])
+
+        st.markdown(
+            dedent(f"""
+            <div style="
+                background:{COLOR_PRIMARY};
+                border:1px solid {COLOR_PRIMARY};
+                border-left:4px solid {COLOR_PRIMARY};
+                border-radius:8px;
+                padding:16px 18px;
+                margin-top:18px;
+            ">
+                <div style="
+                    color:{COLOR_TEXT};
+                    font-size:9px;
+                    font-weight:800;
+                    letter-spacing:.12em;
+                ">ACTIVE DATASET</div>
+                <div style="
+                    color:{COLOR_TEXT};
+                    font-size:17px;
+                    font-weight:750;
+                    margin-top:4px;
+                ">CUSTOM DATA</div>
+                <div style="
+                    color:{COLOR_TEXT};
+                    font-size:10px;
+                    margin-top:4px;
+                ">
+                    {customers:,} customers · {transactions:,} transactions ·
+                    {campaigns:,} campaigns
+                </div>
+            </div>
+            """),
+            unsafe_allow_html=True,
         )
-
-        if custom_data:
-            col1, col2, col3 = st.columns(3)
-
-            with col1:
-                st.metric(
-                    "Customers",
-                    f"{len(custom_data['customers']):,}",
-                )
-
-            with col2:
-                st.metric(
-                    "Transactions",
-                    f"{len(custom_data['transactions']):,}",
-                )
-
-            with col3:
-                st.metric(
-                    "Campaigns",
-                    f"{len(custom_data['campaigns']):,}",
-                )
 
         if st.button(
             "Reset to Demo Dataset",
@@ -263,10 +301,38 @@ def render_active_dataset():
             st.rerun()
 
     else:
-        st.markdown("**DEMO DATASET**")
-
-        st.caption(
-            "The application is currently using the project's fixed demo data."
+        st.markdown(
+            dedent(f"""
+            <div style="
+                background:{COLOR_PRIMARY};
+                border:1px solid {COLOR_PRIMARY};
+                border-left:4px solid {COLOR_PRIMARY};
+                border-radius:8px;
+                padding:16px 18px;
+                margin-top:18px;
+            ">
+                <div style="
+                    color:{COLOR_TEXT};
+                    font-size:9px;
+                    font-weight:800;
+                    letter-spacing:.12em;
+                ">ACTIVE DATASET</div>
+                <div style="
+                    color:{COLOR_TEXT};
+                    font-size:17px;
+                    font-weight:750;
+                    margin-top:4px;
+                ">DEMO DATASET</div>
+                <div style="
+                    color:{COLOR_TEXT};
+                    font-size:10px;
+                    margin-top:4px;
+                ">
+                    The fixed dataset included with the project is currently active.
+                </div>
+            </div>
+            """),
+            unsafe_allow_html=True,
         )
 
 
@@ -275,75 +341,90 @@ def render_active_dataset():
 # =========================================================
 
 def render_data_upload_page():
-    """
-    Render the complete Data & Upload page.
-    """
+    """Render the Data & Upload control center."""
+
     initialize_dataset_state()
 
+    active_dataset = st.session_state.get("active_dataset", "Demo Dataset")
+    custom_data = st.session_state.get("custom_data")
+    custom_is_active = (
+        active_dataset == "Custom Data"
+        and isinstance(custom_data, dict)
+        and all(custom_data.get(key) is not None for key in (
+            "customers", "transactions", "campaigns"
+        ))
+    )
+
+    # The visible source selector is deliberately separate from the active
+    # dataset. Selecting Custom Data only opens the upload workflow; it does
+    # not activate Custom Data until validation succeeds.
+    if custom_is_active:
+        st.session_state.data_source_mode = "Custom Data"
+    elif "data_source_mode" not in st.session_state:
+        st.session_state.data_source_mode = "Demo Dataset"
+
+    source_mode = st.session_state.get(
+        "data_source_mode",
+        "Custom Data" if custom_is_active else "Demo Dataset",
+    )
+
+    # ---------------------------------------------------------
+    # PAGE HEADER
+    # ---------------------------------------------------------
+
     st.title("Data & Upload")
-
     st.caption(
-        "Choose the dataset used by the customer intelligence system."
+        "Select the dataset powering the application, prepare custom CSVs, "
+        "validate them, and switch the active data source."
     )
 
-    st.divider()
+    # ---------------------------------------------------------
+    # DATASET SOURCE
+    # ---------------------------------------------------------
 
-    # -----------------------------------------------------
-    # DATA SOURCE
-    # -----------------------------------------------------
+    with st.container(border=True):
+        st.markdown("**Dataset Source**")
+        st.caption("Choose the data source used by the application.")
 
-    active_dataset = st.session_state.get(
-        "active_dataset",
-        "Demo Dataset",
-    )
+        col1, col2 = st.columns(2, gap="small")
 
-    st.subheader("Data Source")
+        with col1:
+            if st.button(
+                "Demo Dataset",
+                width="stretch",
+                type="primary" if source_mode == "Demo Dataset" else "secondary",
+                key="source_demo_dataset",
+            ):
+                reset_to_demo_dataset()
+                st.rerun()
 
-    selected_source = st.radio(
-        "Dataset",
-        [
-            "Demo Dataset",
-            "Custom Data",
-        ],
-        index=(
-            0
-            if active_dataset == "Demo Dataset"
-            else 1
-        ),
-        horizontal=True,
-        key="dataset_source_selector",
-    )
+        with col2:
+            if st.button(
+                "Custom Data",
+                width="stretch",
+                type="primary" if source_mode == "Custom Data" else "secondary",
+                key="source_custom_data",
+            ):
+                st.session_state.data_source_mode = "Custom Data"
+                st.rerun()
 
-    # -----------------------------------------------------
-    # DEMO DATASET
-    # -----------------------------------------------------
-
-    if selected_source == "Demo Dataset":
-
-        if active_dataset == "Custom Data":
-            reset_to_demo_dataset()
-
-        st.markdown("**Demo Dataset**")
-
-        st.caption(
-            "Use the fixed dataset included with the project."
-        )
-
-    # -----------------------------------------------------
-    # CUSTOM DATA
-    # -----------------------------------------------------
-
-    else:
-        render_template_downloads()
-
-        st.divider()
-
-        render_custom_upload()
-
-        render_validation_results()
-
-    # -----------------------------------------------------
-    # ACTIVE DATASET
-    # -----------------------------------------------------
+    # ---------------------------------------------------------
+    # ACTIVE DATA SOURCE
+    # ---------------------------------------------------------
 
     render_active_dataset()
+
+    # ---------------------------------------------------------
+    # CUSTOM DATA WORKFLOW
+    # ---------------------------------------------------------
+
+    if source_mode == "Custom Data":
+        render_template_downloads()
+        st.divider()
+        render_custom_upload()
+        render_validation_results()
+    else:
+        st.markdown(
+            "Use the Custom Data button above to upload and validate your "
+            "own Customers, Transactions, and Campaigns CSV files."
+        )

@@ -1,19 +1,17 @@
+import html
+import textwrap
+
 import pandas as pd
 import streamlit as st
 
-
-# =========================================================
-# CUSTOMER SEARCH — CLEAN DASHBOARD UI
-# =========================================================
-
-BG = "#0E1117"
-SURFACE = "#161A1F"
-SURFACE_ALT = "#1E2329"
-BORDER = "#30343A"
-LINE = "#3A4046"
-TEXT = "#E8E8E8"
-MUTED = "#92979D"
-WHITE = "#E8E8E8"
+from config import (
+    COLOR_CARD,
+    COLOR_CARD_MUTED,
+    COLOR_CARD_TEXT,
+    COLOR_BORDER,
+    COLOR_TEXT,
+    COLOR_TEXT_MUTED,
+)
 
 
 def _safe(value, default="—"):
@@ -60,185 +58,166 @@ def _format_date(value):
     return parsed.strftime("%d %b %Y")
 
 
-def _metric_card(label, value, description):
-    """One consistent bordered metric card. No nested Streamlit borders."""
-    st.html(
+def _inject_card_styles():
+    """Apply the Customer Search card treatment using config.py colors."""
+    st.markdown(
         f"""
-        <div style="
-            width:100%;
-            min-height:92px;
-            box-sizing:border-box;
-            background:{SURFACE};
-            border:1px solid {BORDER};
-            border-radius:7px;
-            padding:13px 15px 12px 15px;
-            overflow:hidden;
-        ">
-            <div style="
-                height:2px;
-                width:100%;
-                background:{LINE};
-                margin:0 0 10px 0;
-            "></div>
-            <div style="
-                color:{MUTED};
-                font-size:10px;
-                font-weight:700;
-                letter-spacing:.08em;
-                text-transform:uppercase;
-                line-height:1.2;
-                margin:0 0 6px 0;
-            ">{label}</div>
-            <div style="
-                color:{TEXT};
-                font-size:20px;
-                font-weight:700;
-                line-height:1.2;
-                margin:0 0 5px 0;
-                white-space:nowrap;
-                overflow:hidden;
-                text-overflow:ellipsis;
-            ">{value}</div>
-            <div style="
-                color:{MUTED};
-                font-size:10px;
-                line-height:1.3;
-                margin:0;
-            ">{description}</div>
-        </div>
+        <style>
+            .customer-search-card {{
+                background: {COLOR_CARD};
+                border: 1px solid {COLOR_BORDER};
+                border-radius: 6px;
+                padding: 16px 18px 14px 18px;
+                min-height: 96px;
+                box-sizing: border-box;
+            }}
+
+            .customer-search-card .card-label {{
+                color: {COLOR_CARD_MUTED};
+                font-size: 0.66rem;
+                font-weight: 700;
+                letter-spacing: 0.10em;
+                margin-bottom: 8px;
+            }}
+
+            .customer-search-card .card-value {{
+                color: {COLOR_CARD_TEXT};
+                font-size: 1.05rem;
+                font-weight: 700;
+                line-height: 1.25;
+                margin-bottom: 6px;
+            }}
+
+            .customer-search-card .card-description {{
+                color: {COLOR_CARD_MUTED};
+                font-size: 0.70rem;
+                line-height: 1.25;
+            }}
+
+            .customer-search-profile {{
+                display: grid;
+                grid-template-columns: 1.35fr 1fr 1fr 1fr;
+                background: {COLOR_CARD};
+                border: 1px solid {COLOR_BORDER};
+                border-radius: 6px;
+                min-height: 96px;
+                overflow: hidden;
+            }}
+
+            .customer-search-profile .profile-item {{
+                padding: 16px 18px 14px 18px;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                min-width: 0;
+            }}
+
+            .customer-search-profile .profile-item + .profile-item {{
+                border-left: 1px solid {COLOR_BORDER};
+            }}
+
+            .customer-search-profile .profile-label {{
+                color: {COLOR_CARD_MUTED};
+                font-size: 0.66rem;
+                font-weight: 700;
+                letter-spacing: 0.10em;
+                margin-bottom: 8px;
+            }}
+
+            .customer-search-profile .profile-value {{
+                color: {COLOR_CARD_TEXT};
+                font-size: 1.05rem;
+                font-weight: 700;
+                line-height: 1.25;
+                margin-bottom: 5px;
+            }}
+
+            .customer-search-profile .profile-description {{
+                color: {COLOR_CARD_MUTED};
+                font-size: 0.70rem;
+                line-height: 1.25;
+            }}
+
+            .customer-search-section-gap {{
+                height: 2px;
+            }}
+
+            .customer-search-row-gap {{
+                height: 10px;
+            }}
+
+            @media (max-width: 900px) {{
+                .customer-search-profile {{
+                    grid-template-columns: 1fr 1fr;
+                }}
+
+                .customer-search-profile .profile-item:nth-child(3) {{
+                    border-left: 0;
+                    border-top: 1px solid {COLOR_BORDER};
+                }}
+
+                .customer-search-profile .profile-item:nth-child(4) {{
+                    border-top: 1px solid {COLOR_BORDER};
+                }}
+            }}
+        </style>
         """,
+        unsafe_allow_html=True,
     )
 
 
-def _profile_identity(customer):
-    """Render the profile header shown in the approved Customer Search render."""
-    customer_id = _safe(customer.get("customer_id"))
-    registration = _format_date(customer.get("registration_date"))
-    segment = _safe(customer.get("customer_segment"))
-    city = _safe(customer.get("city"))
-
-    st.html(
+def _card(label, value, description):
+    st.markdown(
         f"""
-        <div style="
-            width:100%;
-            box-sizing:border-box;
-            background:{SURFACE};
-            border:1px solid {BORDER};
-            border-radius:7px;
-            padding:16px 18px;
-            margin:0;
-        ">
-            <div style="
-                display:grid;
-                grid-template-columns:1.7fr 1fr 1fr 1fr;
-                align-items:center;
-                column-gap:24px;
-            ">
-                <div style="
-                    min-width:0;
-                    padding-right:22px;
-                    border-right:1px solid {BORDER};
-                ">
-                    <div style="
-                        color:{MUTED};
-                        font-size:9px;
-                        font-weight:700;
-                        letter-spacing:.09em;
-                        text-transform:uppercase;
-                        margin-bottom:6px;
-                    ">CUSTOMER ID</div>
-                    <div style="
-                        color:{TEXT};
-                        font-size:22px;
-                        font-weight:700;
-                        line-height:1.15;
-                        overflow:hidden;
-                        text-overflow:ellipsis;
-                        white-space:nowrap;
-                    ">{customer_id}</div>
-                    <div style="
-                        color:{MUTED};
-                        font-size:10px;
-                        margin-top:4px;
-                    ">Customer profile</div>
-                </div>
-
-                <div>
-                    <div style="
-                        color:{MUTED};
-                        font-size:9px;
-                        font-weight:700;
-                        letter-spacing:.07em;
-                        text-transform:uppercase;
-                        margin-bottom:6px;
-                    ">CUSTOMER SINCE</div>
-                    <div style="
-                        color:{TEXT};
-                        font-size:13px;
-                        font-weight:600;
-                    ">{registration}</div>
-                </div>
-
-                <div>
-                    <div style="
-                        color:{MUTED};
-                        font-size:9px;
-                        font-weight:700;
-                        letter-spacing:.07em;
-                        text-transform:uppercase;
-                        margin-bottom:6px;
-                    ">CUSTOMER SEGMENT</div>
-                    <div style="
-                        color:{TEXT};
-                        font-size:13px;
-                        font-weight:600;
-                    ">{segment}</div>
-                </div>
-
-                <div>
-                    <div style="
-                        color:{MUTED};
-                        font-size:9px;
-                        font-weight:700;
-                        letter-spacing:.07em;
-                        text-transform:uppercase;
-                        margin-bottom:6px;
-                    ">LOCATION</div>
-                    <div style="
-                        color:{TEXT};
-                        font-size:13px;
-                        font-weight:600;
-                    ">{city}</div>
-                </div>
-            </div>
+        <div class="customer-search-card">
+            <div class="card-label">{html.escape(str(label))}</div>
+            <div class="card-value">{html.escape(str(value))}</div>
+            <div class="card-description">{html.escape(str(description))}</div>
         </div>
         """,
+        unsafe_allow_html=True,
     )
 
 
-def _section_heading(title, description):
-    st.html(
-        f"""
-        <div style="
-            margin:22px 0 10px 0;
-            padding:0;
-        ">
-            <div style="
-                color:{TEXT};
-                font-size:19px;
-                font-weight:700;
-                line-height:1.2;
-                margin:0 0 4px 0;
-            ">{title}</div>
-            <div style="
-                color:{MUTED};
-                font-size:11px;
-                line-height:1.35;
-                margin:0;
-            ">{description}</div>
-        </div>
-        """,
+def _profile_card(customer):
+    items = [
+        ("CUSTOMER ID", _safe(customer.get("customer_id")), "Customer profile"),
+        (
+            "CUSTOMER SINCE",
+            _format_date(customer.get("registration_date")),
+            "Registration date",
+        ),
+        (
+            "CUSTOMER SEGMENT",
+            _safe(customer.get("customer_segment")),
+            "RFM-based segment",
+        ),
+        ("LOCATION", _safe(customer.get("city")), "Customer location"),
+    ]
+
+    profile_items_html = []
+
+    for label, value, description in items:
+        profile_items_html.append(
+            (
+                '<div class="profile-item">'
+                f'<div class="profile-label">{html.escape(str(label))}</div>'
+                f'<div class="profile-value">{html.escape(str(value))}</div>'
+                f'<div class="profile-description">{html.escape(str(description))}</div>'
+                '</div>'
+            )
+        )
+
+    # Build the HTML without leading whitespace/newlines.
+    # Leading spaces in the generated HTML make Streamlit interpret it
+    # as a Markdown code block instead of rendering the profile card.
+    profile_html = (
+        '<div class="customer-search-profile">'
+        + "".join(profile_items_html)
+        + "</div>"
     )
+
+    st.markdown(profile_html, unsafe_allow_html=True)
 
 
 def _details_table(customer):
@@ -251,32 +230,34 @@ def _details_table(customer):
         ("Observation Date", _format_date(customer.get("observation_date"))),
         ("Churn Prediction", _safe(customer.get("churn_prediction"))),
         ("Campaigns Received", _format_number(customer.get("campaigns_received"))),
-        ("Campaigns Since Last Purchase", _format_number(customer.get("campaigns_since_last_purchase"))),
+        (
+            "Campaigns Since Last Purchase",
+            _format_number(customer.get("campaigns_since_last_purchase")),
+        ),
     ]
 
     details_df = pd.DataFrame(details, columns=["Metric", "Value"])
 
-    st.dataframe(
-        details_df,
-        use_container_width=True,
-        hide_index=True,
-        height=360,
+    st.markdown(
+        '<div class="app-table-wrap">'
+        + details_df.to_html(
+            index=False,
+            classes="app-table",
+            border=0,
+            escape=True,
+        )
+        + '</div>',
+        unsafe_allow_html=True,
     )
 
 
-def render_customer_search_page(search_data):
-    """
-    Render the complete Customer Search page.
+def _section(title, description):
+    st.subheader(title)
+    st.caption(description)
 
-    Preserves:
-    - customer search and partial-ID matching
-    - customer identity/profile
-    - segment, risk and churn probability
-    - RFM profile
-    - purchase behaviour
-    - campaign engagement
-    - profile details
-    """
+
+def render_customer_search_page(search_data):
+    _inject_card_styles()
 
     if "customer_id" not in search_data.columns:
         st.error("Customer search data does not contain customer_id.")
@@ -284,18 +265,15 @@ def render_customer_search_page(search_data):
 
     data = search_data.copy()
 
-    data["customer_id"] = (
-        data["customer_id"].astype(str).str.strip()
-    )
-
+    # Preserve the existing customer-search behaviour.
+    data["customer_id"] = data["customer_id"].astype(str).str.strip()
     data = data[
-        data["customer_id"].notna()
-        & (data["customer_id"] != "")
+        data["customer_id"].notna() & (data["customer_id"] != "")
     ].copy()
 
     data = (
         data.sort_values("customer_id")
-        .drop_duplicates(subset=["customer_id"], keep="last")
+        .drop_duplicates("customer_id", keep="last")
         .reset_index(drop=True)
     )
 
@@ -308,32 +286,15 @@ def render_customer_search_page(search_data):
     # ---------------------------------------------------------
     # PAGE HEADER
     # ---------------------------------------------------------
-
-    st.html(
-        f"""
-        <div style="margin:0 0 18px 0;">
-            <div style="
-                color:{TEXT};
-                font-size:31px;
-                font-weight:750;
-                letter-spacing:-.03em;
-                line-height:1.1;
-            ">Customer Search</div>
-            <div style="
-                color:{MUTED};
-                font-size:12px;
-                margin-top:5px;
-                line-height:1.4;
-            ">Search for a customer to view their profile, RFM, purchase behaviour,
-            campaign engagement and churn intelligence.</div>
-        </div>
-        """,
+    st.title("Customer Search")
+    st.caption(
+        "Search for a customer to view their profile, RFM, purchase behaviour, "
+        "campaign engagement and churn intelligence."
     )
 
     # ---------------------------------------------------------
     # SEARCH
     # ---------------------------------------------------------
-
     search_query = st.text_input(
         "Search Customer",
         placeholder="Type a customer ID, e.g. C00 or C0036",
@@ -356,9 +317,7 @@ def render_customer_search_page(search_data):
     ]
 
     if not matching_ids:
-        st.warning(
-            f"No customer IDs found matching '{search_query}'."
-        )
+        st.warning(f"No customer IDs found matching '{search_query}'.")
         return
 
     exact_matches = [
@@ -376,15 +335,14 @@ def render_customer_search_page(search_data):
             f"{len(matching_ids):,} customer IDs match "
             f"'{search_query}'. Select a customer:"
         )
+
         selected_customer_id = st.selectbox(
             "Matching customers",
             matching_ids,
             key="customer_search_result",
         )
 
-    customer_rows = data[
-        data["customer_id"] == selected_customer_id
-    ]
+    customer_rows = data[data["customer_id"] == selected_customer_id]
 
     if customer_rows.empty:
         st.error("Customer profile could not be loaded.")
@@ -395,41 +353,38 @@ def render_customer_search_page(search_data):
     # ---------------------------------------------------------
     # CUSTOMER PROFILE
     # ---------------------------------------------------------
-
-    _section_heading(
+    _section(
         f"Customer Profile — {selected_customer_id}",
         "Key information about the selected customer.",
     )
-
-    _profile_identity(customer)
-
-    st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
+    _profile_card(customer)
 
     # ---------------------------------------------------------
-    # EXECUTIVE SUMMARY
+    # CUSTOMER RISK
     # ---------------------------------------------------------
-
-    summary_1, summary_2, summary_3 = st.columns(
-        3,
-        gap="small",
+    _section(
+        "Customer Risk",
+        "Current churn and customer segmentation indicators.",
     )
 
-    with summary_1:
-        _metric_card(
+    c1, c2, c3 = st.columns(3, gap="small")
+
+    with c1:
+        _card(
             "CUSTOMER SEGMENT",
-            str(_safe(customer.get("customer_segment"))),
+            _safe(customer.get("customer_segment")),
             "RFM-based customer segment",
         )
 
-    with summary_2:
-        _metric_card(
+    with c2:
+        _card(
             "RISK LEVEL",
-            str(_safe(customer.get("risk_level"))),
+            _safe(customer.get("risk_level")),
             "Predicted churn-risk category",
         )
 
-    with summary_3:
-        _metric_card(
+    with c3:
+        _card(
             "CHURN PROBABILITY",
             _format_percent(customer.get("churn_probability")),
             "Predicted probability of future churn",
@@ -438,40 +393,36 @@ def render_customer_search_page(search_data):
     # ---------------------------------------------------------
     # RFM PROFILE
     # ---------------------------------------------------------
-
-    _section_heading(
+    _section(
         "RFM Profile",
         "Recency, Frequency and Monetary value for the selected customer.",
     )
 
-    rfm_1, rfm_2, rfm_3, rfm_4 = st.columns(
-        4,
-        gap="small",
-    )
+    c1, c2, c3, c4 = st.columns(4, gap="small")
 
-    with rfm_1:
-        _metric_card(
+    with c1:
+        _card(
             "RECENCY",
             _format_days(customer.get("recency")),
             "Days since last purchase",
         )
 
-    with rfm_2:
-        _metric_card(
+    with c2:
+        _card(
             "FREQUENCY",
             _format_number(customer.get("frequency")),
             "Total number of purchases",
         )
 
-    with rfm_3:
-        _metric_card(
+    with c3:
+        _card(
             "MONETARY VALUE",
             _format_currency(customer.get("monetary")),
             "Total spend (INR)",
         )
 
-    with rfm_4:
-        _metric_card(
+    with c4:
+        _card(
             "RFM SCORE",
             _format_number(customer.get("rfm_score")),
             "Combined RFM score",
@@ -480,26 +431,22 @@ def render_customer_search_page(search_data):
     # ---------------------------------------------------------
     # PURCHASE BEHAVIOUR
     # ---------------------------------------------------------
-
-    _section_heading(
+    _section(
         "Purchase Behaviour",
         "Key purchase indicators for the selected customer.",
     )
 
-    purchase_1, purchase_2 = st.columns(
-        2,
-        gap="small",
-    )
+    c1, c2 = st.columns(2, gap="small")
 
-    with purchase_1:
-        _metric_card(
+    with c1:
+        _card(
             "AVERAGE BILL",
             _format_currency(customer.get("average_bill")),
             "Average value per transaction",
         )
 
-    with purchase_2:
-        _metric_card(
+    with c2:
+        _card(
             "CUSTOMER TENURE",
             _format_days(customer.get("customer_tenure")),
             "Days since customer registration",
@@ -508,78 +455,78 @@ def render_customer_search_page(search_data):
     # ---------------------------------------------------------
     # CAMPAIGN ENGAGEMENT
     # ---------------------------------------------------------
-
-    _section_heading(
+    _section(
         "Campaign Engagement",
         "Historical campaign reach, interaction and redemption behaviour.",
     )
 
-    campaign_1, campaign_2, campaign_3, campaign_4 = st.columns(
-        4,
-        gap="small",
-    )
+    c1, c2, c3, c4 = st.columns(4, gap="small")
 
-    with campaign_1:
-        _metric_card(
+    with c1:
+        _card(
             "CAMPAIGNS SENT",
             _format_number(customer.get("campaigns_sent")),
             "Campaign messages sent",
         )
 
-    with campaign_2:
-        _metric_card(
+    with c2:
+        _card(
             "DELIVERED",
             _format_number(customer.get("campaigns_delivered")),
             "Campaign messages delivered",
         )
 
-    with campaign_3:
-        _metric_card(
+    with c3:
+        _card(
             "CLICKED",
             _format_number(customer.get("campaign_clicks")),
             "Campaign interactions",
         )
 
-    with campaign_4:
-        _metric_card(
+    with c4:
+        _card(
             "DELIVERY RATE",
             _format_percent(customer.get("delivery_rate")),
             "Delivered messages as a share of sent",
         )
 
-    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-
-    engagement_1, engagement_2, engagement_3 = st.columns(
-        3,
-        gap="small",
+    st.markdown(
+        '<div class="customer-search-row-gap"></div>',
+        unsafe_allow_html=True,
     )
 
-    with engagement_1:
-        _metric_card(
+    c1, c2, c3 = st.columns(3, gap="small")
+
+    with c1:
+        _card(
             "CLICK RATE",
             _format_percent(customer.get("click_rate")),
             "Clicks as a share of delivered",
         )
 
-    with engagement_2:
-        _metric_card(
+    with c2:
+        _card(
             "REDEMPTION RATE",
             _format_percent(customer.get("redemption_rate")),
             "Redemptions as a share of delivered",
         )
 
-    with engagement_3:
-        _metric_card(
+    with c3:
+        _card(
             "PREVIOUS REDEMPTIONS",
             _format_number(customer.get("previous_redemptions")),
             "Historical campaign redemptions",
         )
 
+    # Keep a small, consistent gap between the second campaign row
+    # and the Profile Details expander.
+    st.markdown(
+        '<div class="customer-search-row-gap"></div>',
+        unsafe_allow_html=True,
+    )
+
     # ---------------------------------------------------------
     # PROFILE DETAILS
     # ---------------------------------------------------------
-
-    st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
-
     with st.expander("Profile Details"):
         _details_table(customer)
