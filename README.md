@@ -1,16 +1,16 @@
 # Customer Churn Prediction & Campaign Analytics System
 
-> An end-to-end customer intelligence and churn decision-support system for understanding customer behavior, predicting churn risk, prioritizing retention opportunities, and analyzing marketing campaign performance.
+> An end-to-end customer intelligence and churn decision-support system for understanding customer behavior, predicting churn risk, prioritizing retention opportunities, analyzing marketing campaign performance, and quantifying customer-level economic exposure.
 
-**Built with:** Python · Pandas · NumPy · scikit-learn · Plotly · Streamlit
+Built with: **Python · Pandas · NumPy · scikit-learn · Plotly · Streamlit**
 
 ---
 
 ## Overview
 
-This project combines customer profiles, transaction history, campaign activity, machine-learning predictions, RFM segmentation, retention prioritization, and campaign analytics into an integrated analytical application.
+This project combines customer profiles, transaction history, campaign activity, machine-learning predictions, RFM segmentation, retention prioritization, campaign analytics, customer value, retention cost, and economic risk analysis into an integrated analytical application.
 
-The workflow runs from controlled CSV ingestion through validation, preprocessing, feature engineering, churn modeling, customer intelligence, campaign analysis, and interactive Streamlit decision support.
+The workflow runs from controlled CSV ingestion through validation, preprocessing, feature engineering, churn modeling, customer intelligence, campaign analysis, economic intelligence, and interactive Streamlit decision support.
 
 > **Project positioning:** This is a portfolio-oriented decision-support system. It is not an autonomous campaign execution platform or a production deployment.
 
@@ -20,18 +20,105 @@ The workflow runs from controlled CSV ingestion through validation, preprocessin
 
 | Capability | What it does |
 |---|---|
-| **Data Quality** | Validates uploaded customer, transaction, and campaign data before analysis |
-| **Feature Engineering** | Builds customer-level behavioral, transaction, and campaign features |
-| **Churn Prediction** | Estimates the probability that a customer will churn |
-| **Risk Classification** | Converts churn probability into business-facing risk levels |
-| **RFM Segmentation** | Groups customers using recency, frequency, and monetary behavior |
-| **Retention Priority** | Combines churn risk and customer value into a 0–100 priority score |
-| **Expected Revenue at Risk** | Quantifies customer value exposed to predicted churn |
-| **Campaign Analytics** | Measures the Sent → Delivered → Clicked → Redeemed funnel |
-| **Campaign Affinity** | Analyzes observed customer response by campaign type |
-| **Feature Importance** | Exposes Random Forest feature importance as descriptive model information |
-| **Customer Search** | Provides customer-level exploration and current-profile lookup |
-| **Interactive Dashboard** | Brings the analytical workflow together in 8 Streamlit views |
+| Data Quality | Validates uploaded customer, transaction, and campaign data before analysis |
+| Feature Engineering | Builds customer-level behavioral, transaction, and campaign features |
+| Churn Prediction | Estimates the probability that a customer will churn |
+| Risk Classification | Converts churn probability into business-facing risk levels |
+| RFM Segmentation | Groups customers using recency, frequency, and monetary behavior |
+| Retention Priority | Combines churn risk and customer value into a 0–100 priority score |
+| Expected Revenue at Risk | Quantifies customer value exposed to predicted churn |
+| Campaign Analytics | Measures the Sent → Delivered → Clicked → Redeemed funnel |
+| Campaign Affinity | Analyzes observed customer response by campaign type |
+| Feature Importance | Exposes Random Forest feature importance as descriptive model information |
+| Customer Search | Provides customer-level exploration and current-profile lookup |
+| Retention Cost Model | Calculates historical campaign-based retention cost |
+| Customer Value | Calculates historical customer value from transaction activity |
+| Economic Value at Risk | Combines churn probability and customer value into probability-weighted economic exposure |
+| Net Value at Risk | Adjusts economic exposure for observed retention cost |
+| Economic Intelligence | Provides customer-level and portfolio-level economic risk analysis |
+| Interactive Dashboard | Brings the analytical workflow together in 9 Streamlit views |
+
+---
+
+## Economic Intelligence
+
+The latest analytical layer extends churn prediction into economic decision support.
+
+### Customer Value
+
+Customer Value represents the customer's historical monetary contribution based on transaction activity.
+
+The current implementation reports:
+
+- Total historical revenue
+- Purchase count
+- Average order value
+- Active days
+- Annualized revenue
+- Customer value
+
+The current `customer_value` metric is **historical customer value**, not a predictive lifetime-value model.
+
+### Retention Cost
+
+Retention Cost uses campaign cost information to quantify observed historical campaign expenditure.
+
+The model supports:
+
+- Campaign-level retention cost
+- Customer-level retention cost
+- Total retention cost
+- Average retention cost
+- Retention cost by campaign type
+
+Historical campaign cost is treated as a cost proxy for analytical comparison. It is not automatically interpreted as the cost of a future intervention.
+
+### Expected Value at Risk
+
+Expected Value at Risk (EVaR) combines predicted churn probability with customer value:
+
+```text
+Expected Value at Risk
+= churn probability × customer value
+```
+
+Example:
+
+```text
+Customer value = ₹20,000
+Churn probability = 70%
+
+EVaR = ₹20,000 × 0.70
+     = ₹14,000
+```
+
+EVaR represents **probability-weighted economic exposure**. It does not mean that ₹14,000 will definitely be lost, saved, or recovered.
+
+### Net Value at Risk
+
+```text
+Net Value at Risk
+= Expected Value at Risk − Retention Cost
+```
+
+This provides a cost-adjusted view of economic exposure for prioritization and analysis.
+
+### Economic Intelligence View
+
+The current dashboard provides:
+
+- Total Customer Value
+- Total Retention Cost
+- Expected Value at Risk
+- Net Value at Risk
+- Customers Analyzed
+- Average Customer Value
+- Average Retention Cost
+- Average EVaR
+- Top customers by Net Value at Risk
+- Customer Value vs. Churn Probability
+- Historical Retention Cost by Campaign Type
+- Customer-level economic exposure
 
 ---
 
@@ -78,6 +165,12 @@ Customer CSVs
 └──────────┬───────────────────┘
            ▼
 ┌──────────────────────────────┐
+│ Economic Intelligence        │
+│ Value + Cost + EVaR          │
+│ Net Economic Exposure        │
+└──────────┬───────────────────┘
+           ▼
+┌──────────────────────────────┐
 │ Streamlit Decision Support   │
 └──────────────────────────────┘
 ```
@@ -90,8 +183,6 @@ The system works with three primary raw CSV datasets.
 
 ### Customers
 
-Customer profile information:
-
 ```text
 customer_id
 gender
@@ -102,8 +193,6 @@ registration_date
 
 ### Transactions
 
-Purchase information:
-
 ```text
 transaction_id
 customer_id
@@ -113,8 +202,6 @@ outlet
 ```
 
 ### Campaigns
-
-Campaign delivery and engagement information:
 
 ```text
 campaign_id
@@ -134,6 +221,18 @@ redemption_date
 ### Derived Customer Features
 
 `customer_features.csv` is a derived customer-level dataset used for machine-learning preparation and reference. It is not a raw upload schema.
+
+### Campaign Outcome Data
+
+`campaign_outcomes.csv` contains historical campaign/customer exposures with post-campaign purchase and revenue outcomes at 7-, 14-, and 30-day windows.
+
+It is used for campaign-outcome analysis and future campaign planning work. These outcomes are observational and should not be interpreted as causal campaign effects.
+
+### Synthetic Experiment Data
+
+`synthetic_campaign_experiment.csv` contains randomized synthetic treatment/control observations for analytical experimentation.
+
+This dataset is explicitly synthetic and must not be presented as real historical control data or real causal evidence.
 
 ### Validation
 
@@ -166,11 +265,11 @@ Customer-level features are calculated using information available up to the obs
 
 ### RFM Features
 
-- **Recency** — Days since the customer's last purchase
-- **Frequency** — Number of purchases
-- **Monetary** — Total customer spending
-- **Average Bill**
-- **Average Purchase Gap**
+- Recency — Days since the customer's last purchase
+- Frequency — Number of purchases
+- Monetary — Total customer spending
+- Average Bill
+- Average Purchase Gap
 
 ### Additional Customer Features
 
@@ -190,7 +289,7 @@ Future information is excluded from feature calculations to reduce data leakage.
 
 ## Churn Definition
 
-Churn is defined using a **90-day future purchase window**.
+Churn is defined using a 90-day future purchase window.
 
 ```text
 churn = 1  →  No purchase during the following 90 days
@@ -225,7 +324,7 @@ Evaluation uses:
 |---|---:|---:|---:|---:|---:|
 | Logistic Regression | 77.87% | 42.51% | 68.16% | 52.36% | 0.8172 |
 | Decision Tree | 83.55% | 53.72% | 56.42% | 55.04% | 0.7293 |
-| **Random Forest** | **89.33%** | **86.00%** | **48.04%** | **61.65%** | **0.8639** |
+| Random Forest | 89.33% | 86.00% | 48.04% | 61.65% | 0.8639 |
 
 The Random Forest is selected based on the highest ROC-AUC among the evaluated models.
 
@@ -245,7 +344,7 @@ True Positives   : 86
 Predicted churn probabilities are converted into four business-facing risk levels:
 
 | Churn Probability | Risk Level |
-|---:|---|
+|---|---|
 | `< 0.25` | Low |
 | `0.25 – < 0.50` | Medium |
 | `0.50 – < 0.75` | High |
@@ -273,7 +372,7 @@ Segmentation is used alongside churn risk to provide additional customer context
 
 ## Retention Priority
 
-The system combines predicted churn risk and customer value into a **0–100 Retention Priority Score**.
+The system combines predicted churn risk and customer value into a 0–100 Retention Priority Score.
 
 ```text
 Retention Priority
@@ -284,20 +383,11 @@ Retention Priority
 Priority levels:
 
 | Score | Priority |
-|---:|---|
+|---|---|
 | `< 25` | Low |
 | `25 – < 50` | Medium |
 | `50 – < 75` | High |
 | `≥ 75` | Critical |
-
-### Expected Revenue at Risk
-
-```text
-Expected Revenue at Risk
-= churn probability × customer monetary value
-```
-
-This is an analytical exposure metric. It is **not a forecast of actual future revenue loss** and does not assume that retention intervention will succeed.
 
 ---
 
@@ -327,7 +417,7 @@ Campaign performance can also be compared by campaign type.
 
 ## Campaign Affinity
 
-Campaign Affinity evaluates **observed historical customer response by campaign type**.
+Campaign Affinity evaluates observed historical customer response by campaign type.
 
 The analysis uses customer × campaign-type delivered and clicked activity to calculate response metrics such as click rate.
 
@@ -341,7 +431,7 @@ Delivered exposures           : 7,311
 Clicks                        : 2,236
 ```
 
-Campaign Affinity is descriptive. Historical response does **not** establish:
+Campaign Affinity is descriptive. Historical response does not establish:
 
 - causal campaign effectiveness
 - customer preference
@@ -349,28 +439,34 @@ Campaign Affinity is descriptive. Historical response does **not** establish:
 
 ---
 
-## Feature Importance
-
-The application exposes ranked **Random Forest feature importance** to show which features contribute most strongly to the model's tree-based predictive signal.
-
-Feature importance is treated as descriptive model information, not as a causal explanation of customer churn.
-
----
-
 ## Streamlit Dashboard
 
-The application is organized into 8 views:
+The current application contains **9 views**:
 
 | # | View | Purpose |
 |---:|---|---|
-| 1 | **Executive Overview** | High-level customer, churn, and campaign KPIs |
-| 2 | **Data & Upload** | Controlled CSV upload and dataset handling |
-| 3 | **Data Quality** | Validation results and data-quality diagnostics |
-| 4 | **Customer Search** | Customer-level exploration and profile lookup |
-| 5 | **Customer Intelligence** | Customer behavior, segments, and engagement insights |
-| 6 | **Retention & Model Insights** | Churn predictions, risk, priority, and model information |
-| 7 | **Campaign Performance** | Campaign funnel and performance analysis |
-| 8 | **Campaign Affinity** | Customer-level response analysis by campaign type |
+| 1 | Executive Overview | High-level customer, churn, and campaign KPIs |
+| 2 | Data & Upload | Controlled CSV upload and dataset handling |
+| 3 | Data Quality | Validation results and data-quality diagnostics |
+| 4 | Customer Search | Customer-level exploration and profile lookup |
+| 5 | Customer Intelligence | Customer behavior, segments, and engagement insights |
+| 6 | Retention & Model Insights | Churn predictions, risk, priority, and model information |
+| 7 | Campaign Performance | Campaign funnel and performance analysis |
+| 8 | Campaign Affinity | Customer-level response analysis by campaign type |
+| 9 | Economic Intelligence | Customer value, retention cost, EVaR, and economic exposure |
+
+### UI Redesign
+
+The current interface uses a unified visual system built around:
+
+- Dark-blue application shell
+- Compact sidebar navigation
+- Warm cream information cards
+- Consistent KPI cards
+- Consistent table styling
+- Campaign and customer analytical views
+- Dedicated Economic Intelligence presentation
+- Responsive Streamlit page layout
 
 ---
 
@@ -387,9 +483,14 @@ Customer-Churn-Prediction/
 │   ├── campaign_affinity_page.py
 │   ├── customer_search_page.py
 │   ├── data_quality_page.py
-│   └── data_upload_page.py
+│   ├── data_upload_page.py
+│   └── economic_pages.py
 │
 ├── data/
+│   ├── analytics/
+│   │   ├── campaign_outcomes.csv
+│   │   └── synthetic_campaign_experiment.csv
+│   │
 │   └── training/
 │       ├── campaigns.csv
 │       ├── customer_features.csv
@@ -407,8 +508,12 @@ Customer-Churn-Prediction/
 │   │   ├── campaign_affinity.py
 │   │   ├── customer.py
 │   │   ├── customer_search.py
+│   │   ├── customer_value.py
 │   │   ├── data_quality.py
+│   │   ├── economic_value.py
+│   │   ├── economic_priority.py
 │   │   ├── retention.py
+│   │   ├── retention_cost.py
 │   │   └── segmentation.py
 │   │
 │   ├── data/
@@ -429,7 +534,8 @@ Customer-Churn-Prediction/
 │   │   ├── predict.py
 │   │   ├── prepare_dataset.py
 │   │   ├── risk.py
-│   │   └── train.py
+│   │   ├── train.py
+│   │   └── ...
 │   │
 │   ├── preprocessing/
 │   │   └── preprocessing.py
@@ -438,22 +544,6 @@ Customer-Churn-Prediction/
 │       └── charts.py
 │
 ├── tests/
-│   ├── test_campaign_affinity.py
-│   ├── test_campaign_features.py
-│   ├── test_churn_label.py
-│   ├── test_evaluate.py
-│   ├── test_feature_importance.py
-│   ├── test_full_preprocessing.py
-│   ├── test_model_persistence.py
-│   ├── test_predict.py
-│   ├── test_retention.py
-│   ├── test_rfm.py
-│   ├── test_risk.py
-│   ├── test_segmentation.py
-│   ├── test_train.py
-│   ├── test_upload.py
-│   ├── test_upload_limits.py
-│   ├── test_upload_validation.py
 │   └── ...
 │
 ├── .gitignore
@@ -466,11 +556,11 @@ Customer-Churn-Prediction/
 
 ## Testing
 
-The project includes an automated test suite covering data, analytics, machine learning, dashboard logic, and integration behavior.
+The project includes an automated test suite covering data, analytics, machine learning, dashboard logic, economic analytics, and integration behavior.
 
 ### Current Test Status
 
-**125 tests passing**
+**201 tests passing**
 
 Coverage includes:
 
@@ -503,6 +593,10 @@ Coverage includes:
 - Reusable visualizations
 - Customer Search
 - Data Quality dashboard logic
+- Retention Cost Model
+- Customer Value
+- Economic Value at Risk
+- Economic Priority
 - Streamlit page behavior
 
 Run the complete test suite with:
@@ -560,19 +654,27 @@ The model learns from historical customer behavior and should not be interpreted
 
 ### Probability interpretation
 
-Predicted probabilities are model outputs. Probability calibration and threshold optimization are areas for further analytical development.
+Predicted probabilities are model outputs. Probability calibration and threshold optimization remain areas for further analytical development.
 
 ### Campaign Affinity
 
 Observed campaign response does not establish causal campaign effectiveness or individual customer preference.
 
-### Retention value
+### Economic Value at Risk
 
-Expected Revenue at Risk represents potential economic exposure based on predicted churn probability and customer monetary value. It does not represent revenue that will definitely be lost or saved.
+EVaR represents probability-weighted economic exposure based on predicted churn probability and customer value. It does not represent revenue that will definitely be lost or saved.
+
+### Retention Cost
+
+Historical campaign cost is used as an observed cost measure. It should not automatically be interpreted as the cost of a future retention intervention.
 
 ### Intervention impact
 
 The system does not currently estimate treatment effects, uplift, or incremental revenue generated by a specific retention action.
+
+### Synthetic experiment data
+
+The synthetic campaign experiment dataset is generated analytical data and must not be presented as real-world causal evidence.
 
 ---
 
@@ -600,33 +702,41 @@ The system does not currently estimate treatment effects, uplift, or incremental
 - Customer Search
 - Data Quality analysis
 - Reusable visualizations
-- Streamlit dashboard with 8 views
-- Automated test suite with 125 passing tests
-- Project documentation
+- Streamlit dashboard with 9 views
+- Retention Cost Model
+- Customer Value
+- Economic Value at Risk
+- Economic Priority backend analytics
+- Economic Intelligence frontend
+- Economic analytics test suite
+- 201 passing automated tests
+- Updated project documentation
+- Final UI redesign
 
 ### Next Analytical Development
 
-Planned analytical enhancements focus on improving model and business decision quality:
+The next major retention-planning layer can build on the completed economic intelligence foundation:
 
-1. Churn Threshold Sensitivity
-2. Calibration / Model Reliability
-3. Failure Mode Analysis
-4. Segment-Level Model Performance
-5. Economic Value-at-Risk
-6. Risk vs. Economic Value Targeting Comparison
+1. Retention Budget Simulator
+2. Campaign Portfolio Simulator
+3. Economic Priority frontend
+4. Scenario sensitivity analysis
+5. Incremental campaign / treatment-effect analysis
+6. Further model calibration and threshold analysis
 
 ---
 
 ## Documentation
 
-For the complete technical implementation, methodology, validation, testing,
-and system documentation, see:
+For the complete technical implementation, methodology, validation, testing, UI evidence, and system documentation, see:
 
-**[Project Documentation](docs/PROJECT_DOCUMENTATION.docx)**
+**[Project Documentation](docs/PROJECT%20DOCUMENTATION.docx)**
 
 ---
 
 ## Repository
 
-**GitHub:**  
+GitHub:
+
 https://github.com/Ayush-Sarkar-04/Customer-Churn-Prediction
+
