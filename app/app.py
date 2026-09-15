@@ -910,7 +910,7 @@ def render_executive_overview(
     customer_analytics,
     data_mode,
 ):
-    """Render the executive landing page with two clean KPI sections."""
+    """Render the executive landing page with three clean KPI sections."""
 
     customer_data = prepare_customer_search_data(customer_analytics, customers)
 
@@ -950,6 +950,41 @@ def render_executive_overview(
     )
 
     overall_churn_probability = customer_data["churn_probability"].mean()
+
+    # =====================================================
+    # ECONOMIC EXPOSURE METRICS
+    # =====================================================
+
+    # Reuse the same Economic Intelligence calculation pipeline used by the
+    # dedicated page so the Home page remains a summary, not a second
+    # economic calculation engine.
+    economic_data = build_economic_intelligence_data(
+        customer_analytics,
+        transactions,
+        campaigns,
+    )
+
+    average_customer_value = pd.to_numeric(
+        economic_data["customer_value"],
+        errors="coerce",
+    ).fillna(0).mean()
+
+    expected_value_at_risk = pd.to_numeric(
+        economic_data["expected_value_at_risk"],
+        errors="coerce",
+    ).fillna(0).sum()
+
+    net_value_at_risk = pd.to_numeric(
+        economic_data["net_value_at_risk"],
+        errors="coerce",
+    ).fillna(0).sum()
+
+    high_critical_economic_exposure = int(
+        (
+            economic_data["net_value_at_risk"]
+            >= economic_data["net_value_at_risk"].quantile(0.50)
+        ).sum()
+    )
 
     # =====================================================
     # HEADER
@@ -1043,6 +1078,52 @@ def render_executive_overview(
             f"{overall_churn_probability:.1%}",
             "Average model probability",
             COLOR_PRIMARY,
+        )
+
+    # Deliberate separation between customer health and economic exposure.
+    st.markdown("<div style='height: 30px;'></div>", unsafe_allow_html=True)
+
+    # =====================================================
+    # ECONOMIC EXPOSURE
+    # =====================================================
+
+    st.subheader("Economic Exposure")
+    st.caption(
+        "Probability-weighted economic exposure based on customer value, churn probability and observed retention cost."
+    )
+
+    col1, col2, col3, col4 = st.columns(4, gap="medium")
+
+    with col1:
+        render_kpi_card(
+            "AVG. CUSTOMER VALUE",
+            f"₹{average_customer_value:,.0f}",
+            "Average historical value per customer",
+            COLOR_PRIMARY,
+        )
+
+    with col2:
+        render_kpi_card(
+            "EXPECTED VALUE AT RISK",
+            f"₹{expected_value_at_risk:,.0f}",
+            "Probability-weighted economic exposure",
+            COLOR_ALERT,
+        )
+
+    with col3:
+        render_kpi_card(
+            "NET VALUE AT RISK",
+            f"₹{net_value_at_risk:,.0f}",
+            "EVaR less observed retention cost",
+            COLOR_SECONDARY,
+        )
+
+    with col4:
+        render_kpi_card(
+            "HIGH ECONOMIC EXPOSURE",
+            f"{high_critical_economic_exposure:,}",
+            "Customers at or above the median net exposure",
+            COLOR_TERTIARY,
         )
 
 
