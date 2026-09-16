@@ -32,6 +32,7 @@ from data_upload_page import (
     initialize_dataset_state,
     render_data_upload_page,
 )
+from model_diagnostics_page import render_model_diagnostics_page
 
 from src.analytics.customer import build_customer_analytics
 from src.analytics.campaign_affinity import (
@@ -2534,35 +2535,9 @@ def render_sidebar():
     )
 
     # ---------------------------------------------------------
-    # DATA
     # ---------------------------------------------------------
-
-    st.sidebar.markdown(
-        '<div class="sidebar-section-label">DATA</div>',
-        unsafe_allow_html=True,
-    )
-
-    if st.sidebar.button(
-        "▧  Data Quality",
-        width="stretch",
-        type="primary" if current_page == "Data Quality" else "secondary",
-        key="sidebar_data_quality",
-    ):
-        _set_page("Data Quality")
-
-    st.sidebar.markdown(
-        '<div class="sidebar-divider"></div>',
-        unsafe_allow_html=True,
-    )
-
+    # CUSTOMER SEARCH
     # ---------------------------------------------------------
-    # CUSTOMER
-    # ---------------------------------------------------------
-
-    st.sidebar.markdown(
-        '<div class="sidebar-section-label">CUSTOMER</div>',
-        unsafe_allow_html=True,
-    )
 
     if st.sidebar.button(
         "⌕  Customer Search",
@@ -2571,6 +2546,36 @@ def render_sidebar():
         key="sidebar_customer_search",
     ):
         _set_page("Customer Search")
+
+    st.sidebar.markdown(
+        '<div class="sidebar-divider"></div>',
+        unsafe_allow_html=True,
+    )
+
+    # ---------------------------------------------------------
+    # MODEL QUALITY
+    # ---------------------------------------------------------
+
+    st.sidebar.markdown(
+        '<div class="sidebar-section-label">MODEL QUALITY</div>',
+        unsafe_allow_html=True,
+    )
+
+    if st.sidebar.button(
+        "◌  Model Diagnostics",
+        width="stretch",
+        type="primary" if current_page == "Model Diagnostics" else "secondary",
+        key="sidebar_model_diagnostics",
+    ):
+        _set_page("Model Diagnostics")
+
+    if st.sidebar.button(
+        "▧  Data Quality",
+        width="stretch",
+        type="primary" if current_page == "Data Quality" else "secondary",
+        key="sidebar_data_quality",
+    ):
+        _set_page("Data Quality")
 
     st.sidebar.markdown(
         '<div class="sidebar-divider"></div>',
@@ -2626,6 +2631,7 @@ def render_sidebar():
     # ---------------------------------------------------------
     # RETENTION
     # ---------------------------------------------------------
+
     st.sidebar.markdown(
         '<div class="sidebar-section-label">RETENTION</div>',
         unsafe_allow_html=True,
@@ -2738,6 +2744,26 @@ def main():
             )
 
         render_retention_model_insights(customer_analytics, customers, data_mode)
+
+    # =====================================================
+    # MODEL DIAGNOSTICS
+    # =====================================================
+
+    elif page == "Model Diagnostics":
+
+        with st.spinner("Preparing model diagnostics..."):
+            customer_analytics = load_active_customer_analytics(
+                customers,
+                transactions,
+                campaigns,
+                data_mode,
+            )
+
+        render_model_diagnostics_page(
+            customer_analytics,
+            customers,
+            data_mode,
+        )
 
     # =====================================================
     # CAMPAIGN PERFORMANCE
