@@ -698,12 +698,6 @@ Repository: https://github.com/Ayush-Sarkar-04/Customer-Churn-Prediction
  
 ---
  
-## License
- 
-MIT License
- 
----
- 
 ## Project Summary
  
 Customer Churn Prediction & Campaign Analytics System demonstrates how a churn model can be extended beyond simple prediction into a comprehensive decision-support system.
