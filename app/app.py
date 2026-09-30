@@ -1,3 +1,14 @@
+import sys
+from pathlib import Path
+APP_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = APP_DIR.parent
+
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+if str(APP_DIR) not in sys.path:
+    sys.path.insert(0, str(APP_DIR))
+
 import pandas as pd
 import plotly.express as px
 import streamlit as st
@@ -514,11 +525,11 @@ st.markdown(THEME_CSS, unsafe_allow_html=True)
 # DATASET PATHS
 # =========================================================
 
-CUSTOMERS_PATH = "data/training/customers.csv"
-TRANSACTIONS_PATH = "data/training/transactions.csv"
-CAMPAIGNS_PATH = "data/training/campaigns.csv"
-FEATURES_PATH = "data/training/customer_features.csv"
-MODEL_PATH = "models/random_forest.joblib"
+CUSTOMERS_PATH = PROJECT_ROOT / "data" / "training" / "customers.csv"
+TRANSACTIONS_PATH = PROJECT_ROOT / "data" / "training" / "transactions.csv"
+CAMPAIGNS_PATH = PROJECT_ROOT / "data" / "training" / "campaigns.csv"
+FEATURES_PATH = PROJECT_ROOT / "data" / "training" / "customer_features.csv"
+MODEL_PATH = PROJECT_ROOT / "models" / "random_forest.joblib"
 
 
 # =========================================================
