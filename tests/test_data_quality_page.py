@@ -95,11 +95,15 @@ render_data_quality_page(
 
     assert not at.exception
 
-    assert len(at.title) == 1
-    assert at.title[0].value == "Data Quality"
+    assert any(
+        "Data Quality" in block.value
+        for block in at.markdown
+    )
 
-    assert len(at.success) == 1
-    assert at.success[0].value == "✓ DATASET VALID"
+    assert any(
+        "DATASET VALID" in block.value
+        for block in at.markdown
+    )
 
     assert len(at.metric) == 4
 

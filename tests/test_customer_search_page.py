@@ -73,8 +73,11 @@ def test_customer_search_page_exact_customer():
 
     assert not at.exception
 
-    # Verify that the selected customer's profile is rendered.
-    assert len(at.metric) > 0 or len(at.dataframe) > 0
+    # The customer profile is rendered using Markdown/HTML.
+    assert any(
+        "C003" in block.value
+        for block in at.markdown
+    )
 
 
 def test_customer_search_page_no_results():
