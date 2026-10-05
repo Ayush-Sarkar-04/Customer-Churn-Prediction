@@ -106,7 +106,7 @@ def predict_customers(df, model_path=MODEL_PATH):
     # 3. Align customer IDs with prepared rows
     # ---------------------------------------------------------
 
-    prepared_df = df.loc[X.index].copy()
+    prepared_df = df.iloc[X.index].copy()
 
     results = pd.DataFrame({
         "customer_id": prepared_df["customer_id"].values,

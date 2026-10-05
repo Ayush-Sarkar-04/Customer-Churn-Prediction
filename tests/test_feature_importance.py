@@ -149,9 +149,9 @@ def test_load_random_forest_feature_importance():
         "importance",
     ]
 
-    assert len(result) == 15
+    assert len(result) == 14
 
-    assert result["rank"].tolist() == list(range(1, 16))
+    assert result["rank"].tolist() == list(range(1, 15))
 
     assert result["importance"].between(0, 1).all()
 

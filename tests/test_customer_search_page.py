@@ -23,7 +23,7 @@ def create_customer_analytics():
             "risk_level": ["Low", "Low", "Very High"],
             "campaigns_sent": [10, 8, 12],
             "campaigns_delivered": [9, 7, 10],
-            "campaign_clicks": [4, 3, 2],
+            "campaigns_clicked": [4, 3, 2],
             "campaigns_redeemed": [2, 1, 0],
             "delivery_rate": [0.90, 0.875, 0.8333],
             "click_rate": [0.4444, 0.4286, 0.20],

@@ -1,6 +1,6 @@
 from src.ml.prepare_dataset import (
     load_ml_dataset,
-    prepare_ml_dataset
+    prepare_ml_dataset,
 )
 
 
@@ -24,5 +24,5 @@ def test_prepare_ml_dataset():
     print(y.value_counts())
 
     assert len(X) == len(y)
-    assert X.shape[1] == 15
+    assert X.shape[1] == 14
     assert set(y.unique()).issubset({0, 1})

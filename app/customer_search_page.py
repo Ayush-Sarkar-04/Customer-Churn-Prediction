@@ -229,7 +229,7 @@ def _details_table(customer):
         ("Customer Since", _format_date(customer.get("registration_date"))),
         ("Observation Date", _format_date(customer.get("observation_date"))),
         ("Churn Prediction", _safe(customer.get("churn_prediction"))),
-        ("Campaigns Received", _format_number(customer.get("campaigns_received"))),
+        ("Campaigns Delivered", _format_number(customer.get("campaigns_delivered"))),
         (
             "Campaigns Since Last Purchase",
             _format_number(customer.get("campaigns_since_last_purchase")),
@@ -479,7 +479,7 @@ def render_customer_search_page(search_data):
     with c3:
         _card(
             "CLICKED",
-            _format_number(customer.get("campaign_clicks")),
+            _format_number(customer.get("campaigns_clicked")),
             "Campaign interactions",
         )
 

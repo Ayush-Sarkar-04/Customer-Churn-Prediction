@@ -16,30 +16,6 @@ def _parse_dates(series):
     return pd.to_datetime(series, dayfirst=True, errors="coerce")
 
 
-def _add_model_aliases(features):
-    result = features.copy()
-
-    if (
-        "avg_purchase_gap" not in result.columns
-        and "average_purchase_gap" in result.columns
-    ):
-        result["avg_purchase_gap"] = result["average_purchase_gap"]
-
-    if (
-        "campaigns_received" not in result.columns
-        and "campaigns_delivered" in result.columns
-    ):
-        result["campaigns_received"] = result["campaigns_delivered"]
-
-    if (
-        "campaign_clicks" not in result.columns
-        and "campaigns_clicked" in result.columns
-    ):
-        result["campaign_clicks"] = result["campaigns_clicked"]
-
-    return result
-
-
 def _add_campaigns_since_last_purchase(features, transactions, campaigns, observation_date):
     result = features.copy()
     tx = transactions.copy()
@@ -103,7 +79,6 @@ def _build_features_at_observation(
         campaigns.copy(),
         observation_date,
     )
-    features = _add_model_aliases(features)
     features = _add_campaigns_since_last_purchase(
         features,
         transactions,
@@ -310,3 +285,4 @@ def build_custom_model_evaluation(
             "future_90d_purchases",
         ]
     ].copy()
+

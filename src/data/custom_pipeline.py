@@ -71,34 +71,6 @@ def _prepare_custom_features(
     features = features.copy()
 
     # ---------------------------------------------------------
-    # Align feature names with the ML training schema
-    # ---------------------------------------------------------
-
-    if (
-        "avg_purchase_gap" not in features.columns
-        and "average_purchase_gap" in features.columns
-    ):
-        features["avg_purchase_gap"] = features[
-            "average_purchase_gap"
-        ]
-
-    if (
-        "campaigns_received" not in features.columns
-        and "campaigns_delivered" in features.columns
-    ):
-        features["campaigns_received"] = features[
-            "campaigns_delivered"
-        ]
-
-    if (
-        "campaign_clicks" not in features.columns
-        and "campaigns_clicked" in features.columns
-    ):
-        features["campaign_clicks"] = features[
-            "campaigns_clicked"
-        ]
-
-    # ---------------------------------------------------------
     # Calculate campaigns since last purchase
     # ---------------------------------------------------------
 

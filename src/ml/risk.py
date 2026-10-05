@@ -11,10 +11,11 @@ def classify_risk(churn_probability):
         < 0.50  -> Medium
         < 0.75  -> High
         >= 0.75 -> Very High
+        NaN     -> Unknown
     """
 
     if pd.isna(churn_probability):
-        return "Low"
+        return "Unknown"
 
     probability = float(churn_probability)
 
