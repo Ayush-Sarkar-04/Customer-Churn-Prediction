@@ -682,7 +682,6 @@ def render_model_diagnostics_page(customer_analytics, customers, data_mode):
             legend_title=None,
         )
         st.plotly_chart(fig, width="stretch")
-
     with st.expander("Methodology & interpretation"):
         st.markdown(
             "- Threshold sensitivity reuses the existing model probabilities and held-out labels; it does not retrain the model.\n"
